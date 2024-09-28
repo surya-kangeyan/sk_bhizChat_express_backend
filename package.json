@@ -1,0 +1,50 @@
+{
+  "name": "my-shopify-app",
+  "version": "1.0.0",
+  "description": "A Shopify app built with Express and TypeScript",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node dist/index.js",
+    "dev": "NODE_OPTIONS='--loader ts-node/esm' ts-node src/index.ts",
+    "build": "tsc",
+    "lint": "eslint . --ext .ts",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@shopify/shopify-api": "^11.4.1",
+    "@shopify/shopify-app-express": "^5.0.6",
+    "@shopify/shopify-app-session-storage": "^3.0.6",
+    "@shopify/shopify-app-session-storage-memory": "^4.0.6",
+    "axios": "^1.7.7",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "semver": "^7.6.2"
+  },
+  "devDependencies": {
+    "@types/compression": "^1.7.5",
+    "@types/cookie-parser": "^1.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.0.0",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/semver": "^7.5.8",
+    "eslint": "^8.0.0",
+    "jest": "^29.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "nodemon": "^3.0.1",
+    "rimraf": "^5.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.4"
+  },
+  "keywords": [
+    "shopify",
+    "express",
+    "typescript",
+    "app"
+  ],
+  "author": "suryakangeyan",
+  "license": "MIT"
+}
