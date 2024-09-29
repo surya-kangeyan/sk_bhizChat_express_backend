@@ -6,12 +6,44 @@ import express, {
 } from 'express';
 import axios from 'axios'; // Import axios to make API requests
 
+import { Server } from 'socket.io'
+import { createServer } from 'http'; 
+
 import dotenv from 'dotenv';
 import cors from 'cors';
 dotenv.config();
 
-const PORT = 3000;
+// SHOPIFY_API_KEY="767caeedbacf817910eb6b7fb4379c5d"
+// SHOPIFY_API_SECRET="97f463c1239fe7618d202c6b0f63f6bd"
+// PORT=3000
+
 const app = express();
+
+const server = createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST"],
+  }
+})
+
+io.on('connection', (socket) => {
+  console.log('A user connected: ', socket.id);
+
+  // Example of emitting data to the client
+  socket.emit('message', 'Hello from server!');
+
+  // Listening to messages from the client
+  socket.on('clientMessage', (data) => {
+    console.log('Message from client: ', data);
+  });
+
+  // When the client disconnects
+  socket.on('disconnect', () => {
+    console.log('User disconnected');
+  });
+});
 
 app.use(
   cors({
@@ -180,10 +212,12 @@ app.get(
   }
 );
 // ================
+app.get('/api/testing', (req: Request, res:Response) => {
+  res.send("HELLO WORLD")
+})
 
 
-
-app.listen(PORT, () =>
+app.listen(process.env.PORT, () =>
   console.log(
     `Server running on http://localhost:${process.env.PORT}`
   )
