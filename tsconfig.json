@@ -10,8 +10,9 @@
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "jsx": "react-jsx",
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "src/clientTest.ts"],
   "exclude": ["node_modules", "dist"]
 }

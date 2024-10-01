@@ -17,18 +17,27 @@ dotenv.config();
 // SHOPIFY_API_SECRET="97f463c1239fe7618d202c6b0f63f6bd"
 // PORT=3000
 
+//try testing sockets from command line
+
+//send request through terminal, try to extract url (with user info) from server
+
+//try to store session in sqlite database, look at github
+//try to retrieve session after storing it 
+
 const app = express();
 
 const server = createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: "http://localhost:4000",
+    credentials:true, //??
     methods: ["GET", "POST"],
   }
 })
 
 io.on('connection', (socket) => {
+  console.log("hello world")
   console.log('A user connected: ', socket.id);
 
   // Example of emitting data to the client
