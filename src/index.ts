@@ -1,64 +1,222 @@
-import { shopifyApp } from '@shopify/shopify-app-express';
-import { SQLiteSessionStorage } from '@shopify/shopify-app-session-storage-sqlite';
-import { Session } from '@shopify/shopify-api'; 
-import { ShopifySession } from './SessionObject.ts';
+// import { shopifyApp } from '@shopify/shopify-app-express';
+// import express, {
+//   Request,
+//   Response,
+//   NextFunction,
+// } from 'express';
+// import axios from 'axios'; // Import axios to make API requests
+
+// import { Server } from 'socket.io';
+// import { createServer } from 'http';
+
+// import dotenv from 'dotenv';
+// import cors from 'cors';
+// dotenv.config();
+
+// const app = express();
+
+// const server = createServer(app);
+
+// const io = new Server(server, {
+//   cors: {
+//     origin: 'http://localhost:4000',
+//     credentials: true,
+//     methods: ['GET', 'POST'],
+//   },
+// });
+
+// io.on('connection', (socket) => {
+//   console.log('A user connected: ', socket.id);
+
+//   // Example of emitting data to the client
+//   socket.emit('message', 'Hello from server!');
+
+//   // Listening to messages from the client
+//   socket.on('clientMessage', (data) => {
+//     console.log('Message from client: ', data);
+//   });
+
+//   // When the client disconnects
+//   // socket.on('disconnect', () => {
+//   //   console.log('User disconnected');
+//   // });
+// });
+
+// app.use(
+//   cors({
+//     origin: 'http://localhost:3000', // Replace with your frontend URL
+//     methods: ['GET', 'POST', 'PUT', 'DELETE'], // Specify allowed HTTP methods
+//     credentials: true, // Enable cookies and credentials if needed
+//   })
+// );
+
+// // Initialize the Shopify app
+// const shopify = shopifyApp({
+//   api: {
+//     apiKey: process.env.SHOPIFY_API_KEY,
+//     apiSecretKey: process.env.SHOPIFY_API_SECRET,
+//     scopes: process.env.SHOPIFY_SCOPES
+//       ? process.env.SHOPIFY_SCOPES.split(',')
+//       : undefined,
+//     hostScheme: 'http',
+//     hostName: `localhost:${process.env.PORT}`,
+//   },
+//   auth: {
+//     path: '/api/auth',
+//     callbackPath: '/api/auth/callback',
+//   },
+//   webhooks: {
+//     path: '/api/webhooks',
+//   },
+// });
+
+// // Start the Shopify authentication process (OAuth initiation)
+// app.get(
+//   shopify.config.auth.path,
+//   shopify.auth.begin()
+// );
+
+// // Handle the Shopify OAuth callback
+// app.get(
+//   shopify.config.auth.callbackPath,
+//   shopify.auth.callback(),
+//   async (
+//     req: Request,
+//     res: Response,
+//     next: NextFunction
+//   ) => {
+//     console.log(
+//       'index.ts fetching initial auth token from Shopify'
+//     );
+//     try {
+//       const session = res.locals.shopify.session;
+//       console.log(
+//         'Authenticated session:',
+//         session
+//       );
+
+//       // Optionally, store the access token and shop details in your database
+
+//       const host = req.query.host as string;
+//       console.log(
+//         `index.js the session shop id ${session.shop}, host string ${host}`
+//       );
+//       res.redirect(
+//         `/?shop=${session.shop}&host=${host}`
+//       );
+//     } catch (error) {
+//       console.error(
+//         'Error in the authentication callback:',
+//         error
+//       );
+//       next(error);
+//     }
+//   },
+//   shopify.redirectToShopifyOrAppRoot()
+// );
+
+// // API endpoint to fetch products
+// app.get(
+//   '/api/products',
+//   shopify.ensureInstalledOnShop(),
+//   async (req: Request, res: Response) => {
+//     try {
+//       const session = res.locals.shopify.session;
+//       const accessToken = session.accessToken;
+//       const shop = session.shop;
+
+//       const response = await axios.get(
+//         `https://${shop}/admin/api/2024-09/products.json`,
+//         {
+//           headers: {
+//             'X-Shopify-Access-Token': accessToken,
+//             'Content-Type': 'application/json',
+//           },
+//         }
+//       );
+
+//       res.json(response.data);
+//     } catch (error) {
+//       console.error(
+//         'Error fetching products:',
+//         error
+//       );
+//       res
+//         .status(500)
+//         .json({
+//           error: 'Failed to fetch products',
+//         });
+//     }
+//   }
+// );
+
+// // A simple testing endpoint
+// app.get(
+//   '/api/testing',
+//   (req: Request, res: Response) => {
+//     res.send('HELLO WORLD');
+//   }
+// );
+
+// // Start the server
+// server.listen(process.env.SOCKET_PORT, () => {
+//   console.log(
+//     `Server running on http://localhost:${process.env.PORT}`
+//   );
+//   console.log(
+//     'Shopify object initialized and socket server started'
+//   );
+// });
+
 
 import express, {
   Request,
   Response,
   NextFunction,
 } from 'express';
+import { shopifyApp } from '@shopify/shopify-app-express';
 import axios from 'axios';
+import { Server } from 'socket.io';
+import { createServer } from 'http';
 import dotenv from 'dotenv';
 import cors from 'cors';
-
 dotenv.config();
 
-const PORT = parseInt(
-  process.env.PORT || '3000',
-  10
-);
+// Initialize Express and HTTP server
 const app = express();
+const server = createServer(app);
 
-// initializing the session storage
-
-const sessionStorage = new SQLiteSessionStorage(
-  './shopify_sessions.db'
-);
-
-
-// Logging middleware
-app.use((req, res, next) => {
-  console.log(
-    'Request received:',
-    req.method,
-    req.url,
-    req.query
-  );
-  next();
+// Initialize Socket.IO on the same server
+const io = new Server(server, {
+  cors: {
+    origin: 'http://localhost:3000', // Frontend URL
+    credentials: true,
+    methods: ['GET', 'POST'],
+  },
 });
 
+// In-memory session store for simplicity
+const sessionStore: Record<string, any> = {};
+
+// CORS setup for Express
 app.use(
   cors({
-    origin:
-      process.env.FRONTEND_URL ||
-      'http://localhost:3000',
+    origin: 'http://localhost:3000', // Replace with your frontend URL
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
   })
 );
 
+// Initialize Shopify App
 const shopify = shopifyApp({
-  useOnlineTokens: true,
   api: {
-    apiKey: process.env.SHOPIFY_API_KEY || '',
-    apiSecretKey:
-      process.env.SHOPIFY_API_SECRET || '',
+    apiKey: process.env.SHOPIFY_API_KEY,
+    apiSecretKey: process.env.SHOPIFY_API_SECRET,
     scopes: process.env.SHOPIFY_SCOPES
       ? process.env.SHOPIFY_SCOPES.split(',')
-      : [],
+      : undefined,
     hostScheme: 'http',
-    hostName: `localhost:${PORT}`,
+    hostName: `localhost:${process.env.PORT}`,
   },
   auth: {
     path: '/api/auth',
@@ -67,212 +225,123 @@ const shopify = shopifyApp({
   webhooks: {
     path: '/api/webhooks',
   },
-
 });
-let id:string;
-let shop:string;
-let shopifySession: ShopifySession;
-// Authentication routes
+
+// Route to begin Shopify authentication
 app.get(
   shopify.config.auth.path,
   shopify.auth.begin()
 );
+
+// Handle Shopify OAuth callback and store the session
 app.get(
   shopify.config.auth.callbackPath,
   shopify.auth.callback(),
-  async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+  (req: Request, res: Response) => {
+    const session = res.locals.shopify.session;
     console.log(
-      'Authentication callback reached'
+      'Authenticated session:',
+      session
     );
-    try {
-      const session = res.locals.shopify.session;
-      console.log(
-        'Authenticated session:',
-        session
-      );
-      id = session.id;
-      shop = session.shop;
-       shopifySession = new ShopifySession(
-         res.locals.shopify.session
-       );
-      console.log(
-        `index.ts callback called after fetching sessions ${shopifySession}`
-      );
-      const host = req.query.host as string;
-      console.log(
-        `Authentication successful for shop ${shopifySession.shop}, session id ${id},host: ${host}`
-      );
 
-      await sessionStorage.storeSession(session); // This should work correctly now
+    // Store the session data using the shop domain as the key
+    sessionStore[session.shop] = session;
 
-      res.redirect(
-        `/?shop=${session.shop}&host=${host}`
-      );
-    } catch (error) {
-      console.error(
-        'Error in the authentication callback:',
-        error
-      );
-      next(error);
-    }
+    // Notify all connected clients about the successful authentication
+    io.emit('authSuccess', {
+      shop: session.shop,
+      accessToken: session.accessToken,
+    });
+
+    res.redirect('/');
   }
 );
 
+// Integrate Socket.IO with Shopify app
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
 
-const addSessionShopToReqParams =async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  // ======================================== >  the res value used here is different  fromt he res values used to set the locales
-  console.log(
-    'Adding session shop to request params'
-  );
-  const session = await sessionStorage.loadSession(id);
-  console.log(
-    `index.ts fetching session value from the database ${session?.id}, session shop ${shopifySession?.shop}`
-  );
-  // const shop = res.locals?.shopify?.session
-  //   ?.shop as string | undefined;
-  if (shop && !req.query.shop) {
-    req.query.shop = shopifySession?.shop;
-  }
-  console.log(
-    'Shop:',
-    shop,
-    'Request shop:',
-    req.query.shop
-  );
-  return next();
-};
-
-// Middleware chain
-// app.use(
-//   '/api/*',
-//   shopify.validateAuthenticatedSession()
-// );
-app.use(addSessionShopToReqParams);
-// app.use(shopify.ensureInstalledOnShop());
-// Retrieve session from storage
-// const getSessionFromStorage = async (sessionId: string): Promise<Session | undefined> => {
-//   try {
-//     const sessionData = await sessionStorage.loadSession(sessionId);
-//     if (sessionData) {
-//       return new Session(sessionData); // Convert back to a Session object
-//     }
-//     return undefined;
-//   } catch (error) {
-//     console.error('Error retrieving session from storage:', error);
-//     return undefined;
-//   }
-// };
-
-// API routes
-app.get(
-  '/api/collects',
-  async (req: Request, res: Response) => {
+  // Handling authentication initiation from the client
+  socket.on('startShopifyAuth', () => {
     console.log(
-      'Fetching collections via GraphQL'
+      'Starting Shopify authentication'
     );
-    try {
-      const shop = shopifySession?.shop;
-      if (!shop) {
-        return res
-          .status(400)
-          .send('No shop provided');
-      }
+    socket.emit(
+      'redirect',
+      shopify.config.auth.path
+    );
+  });
 
-      // const session = res.locals.shopify.session;
-      const session = shopifySession;
-      const accessToken = session?.accessToken;
+  // Fetch Shopify products
+  socket.on(
+    'fetchProducts',
+    async (shop: string) => {
+      try {
+        // Retrieve the session data from our in-memory store
+        const session = sessionStore[shop];
+        if (!session) {
+          socket.emit(
+            'error',
+            'Shopify session not found. Please authenticate first.'
+          );
+          return;
+        }
 
-      const graphqlQuery = `
-      {
-        collections(first: 10) {
-          edges {
-            node {
-              id
-              title
-              handle
-              updatedAt
-              products(first: 8) {
-                edges {
-                  node {
-                    id
-                    title
-                    description
-                  }
-                }
-              }
-            }
+        const accessToken = session.accessToken;
+
+        // Fetch products from Shopify API
+        const response = await axios.get(
+          `https://${shop}/admin/api/2024-09/products.json`,
+          {
+            headers: {
+              'X-Shopify-Access-Token':
+                accessToken,
+              'Content-Type': 'application/json',
+            },
           }
-        }
+        );
+
+        socket.emit(
+          'productsFetched',
+          response.data
+        );
+      } catch (error) {
+        console.error(
+          'Error fetching products:',
+          error
+        );
+        socket.emit(
+          'error',
+          'Failed to fetch products'
+        );
       }
-    `;
-
-      const graphqlResponse = await axios.post(
-        `https://${shop}/admin/api/2024-07/graphql.json`,
-        { query: graphqlQuery },
-        {
-          headers: {
-            'X-Shopify-Access-Token': accessToken,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      res.json(graphqlResponse.data);
-    } catch (error) {
-      console.error(
-        'Error fetching collections via GraphQL:',
-        error
-      );
-      res
-        .status(500)
-        .json({
-          error:
-            'Failed to fetch collections via GraphQL',
-        });
     }
-  }
-);
+  );
 
-// Catch-all route
-app.get('*', (req: Request, res: Response) => {
-  console.log('Catch-all route reached');
-  const shop = req.query.shop;
-  if (shop) {
-    res
-      .status(200)
-      .send(`App is installed for shop: ${shop}`);
-  } else {
-    res
-      .status(400)
-      .send('Missing shop parameter');
-  }
+  // Handle client disconnection
+  socket.on('disconnect', () => {
+    console.log(
+      'Client disconnected:',
+      socket.id
+    );
+  });
 });
 
-// Error handling middleware
-app.use(
-  (
-    err: any,
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
-    console.error('Unhandled error:', err);
-    res
-      .status(500)
-      .send('An unexpected error occurred');
+// Endpoint to check if the server is alive
+app.get(
+  '/api/health',
+  (req: Request, res: Response) => {
+    res.send('Server and Socket.IO are running.');
   }
 );
 
-app.listen(PORT, () =>
+// Start the server on a single port
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
   console.log(
-    `Server running on http://localhost:${PORT}`
-  )
-);
+    `Server running at http://localhost:${PORT}`
+  );
+  console.log(
+    'Socket.IO server and Shopify integration are active.'
+  );
+});
