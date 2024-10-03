@@ -25,6 +25,7 @@
     "express": "^4.19.2",
     "mongodb": "^6.9.0",
     "semver": "^7.6.2",
+    "socket.io-client": "^4.8.0",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {
@@ -35,6 +36,7 @@
     "@types/jest": "^29.0.0",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/semver": "^7.5.8",
+    "@types/socket.io": "^3.0.2",
     "@types/sqlite3": "^3.1.11",
     "eslint": "^8.0.0",
     "jest": "^29.0.0",
@@ -42,7 +44,7 @@
     "nodemon": "^3.0.1",
     "rimraf": "^5.0.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.0.4"
+    "typescript": "^5.6.2"
   },
   "keywords": [
     "shopify",
