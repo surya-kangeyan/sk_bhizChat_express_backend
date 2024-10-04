@@ -8,11 +8,13 @@
     "strict": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "sourceMap": true,
     "jsx": "react-jsx",
   },
-  "include": ["src/**/*", "src/clientTest.ts"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }
