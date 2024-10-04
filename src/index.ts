@@ -13,10 +13,6 @@ import { createServer } from 'http';
 
 dotenv.config();
 
-// const PORT = parseInt(
-//   process.env.PORT || '3000',
-//   10
-// );
 const SOCKET_PORT = parseInt(
   process.env.SOCKET_PORT || '3000',
   10
@@ -27,6 +23,7 @@ const server = createServer(app);
 
 // Initialize Socket.IO
 const io = new Server(server, {
+  transports: ['websocket'],
   cors: {
     origin:
       process.env.FRONTEND_URL ||
@@ -75,7 +72,7 @@ io.on('connection', (socket) => {
 
     // Emit an event to the client with the Shopify auth URL
     socket.emit('redirectToShopify', {
-      url: shopify.config.auth.path, // This will be '/api/auth'
+      url: `http://localhost:3000${shopify.config.auth.path}?shop=suryakang-test-store.myshopify.com`, // This will be '/api/auth'
     });
   });
 
@@ -314,8 +311,4 @@ server.listen(SOCKET_PORT, () => {
   );
 });
 
-// app.listen(SOCKET_PORT, () => {
-//   console.log(
-//     `Express app running on http://localhost:${SOCKET_PORT}`
-//   );
-// });
+
