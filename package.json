@@ -6,10 +6,11 @@
   "type": "module",
   "scripts": {
     "start": "node dist/index.js",
-    "dev": "NODE_OPTIONS='--loader ts-node/esm' ts-node src/index.ts",
+    "dev": "NODE_OPTIONS='--loader ts-node/esm' ts-node -r tsconfig-paths/register src/index.ts",
     "build": "tsc",
     "lint": "eslint . --ext .ts",
-    "test": "jest"
+    "test": "jest",
+    "mongo": "NODE_OPTIONS='--loader ts-node/esm' ts-node -r tsconfig-paths/register src/mongo.ts"
   },
   "dependencies": {
     "@shopify/shopify-api": "^11.4.1",
@@ -24,9 +25,11 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "mongodb": "^6.9.0",
+    "mongoose": "^8.7.0",
     "semver": "^7.6.2",
     "socket.io-client": "^4.8.0",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^5.1.7",
+    "tsconfig-paths": "^4.2.0"
   },
   "devDependencies": {
     "@types/compression": "^1.7.5",
