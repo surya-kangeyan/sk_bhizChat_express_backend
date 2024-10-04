@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopify API Integration</title>
+  <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+</head>
+<body>
+
+  <h1>Shopify API Integration</h1>
+
+  <!-- Buttons to trigger actions -->
+  <button id="begin-auth">Begin Auth</button>
+  <button id="fetch-products">Fetch Products</button>
+  <button id="fetch-collections">Fetch Collections</button>
+
+  <!-- Container for results -->
+  <div id="output"></div>
+
+  <script>
+    const socket = io('http://localhost:3000/api/auth?shop=suryakang-test-store.myshopify.com');
+
+    // Function to output results in the output div
+    function logMessage(message) {
+      const output = document.getElementById('output');
+      const newMessage = document.createElement('p');
+      newMessage.textContent = message;
+      output.appendChild(newMessage);
+    }
+
+    // Handle connection to the Socket.IO server
+    socket.on('connect', () => {
+      logMessage('Connected to the server with Socket ID: ' + socket.id);
+    });
+
+    // Handle errors in connection
+    socket.on('connect_error', (error) => {
+      logMessage('Connection Error: ' + error);
+    });
+
+    // Button: Begin Auth
+    document.getElementById('begin-auth').addEventListener('click', () => {
+      logMessage('Emitting startShopifyAuth...');
+      socket.emit('startShopifyAuth');
+
+      // Listen for redirect URL
+      socket.on('redirectToShopify', (data) => {
+        logMessage('Redirect to Shopify Auth URL: ' + data.url);
+        window.location.href = data.url;  // Redirect to Shopify Auth URL
+      });
+    });
+
+    // Button: Fetch Products (You can add the server-side implementation for this in a similar way as collections)
+    document.getElementById('fetch-products').addEventListener('click', () => {
+      logMessage('Fetching Shopify products...');
+      socket.emit('fetchProducts'); // This should be implemented on the server side
+
+      // Listen for products data
+      socket.on('productsData', (data) => {
+        logMessage('Products Data: ' + JSON.stringify(data, null, 2));
+      });
+
+      // Listen for errors in fetching products
+      socket.on('productsDataError', (error) => {
+        logMessage('Error fetching products: ' + error);
+      });
+    });
+
+    // Button: Fetch Collections
+    document.getElementById('fetch-collections').addEventListener('click', () => {
+      logMessage('Fetching Shopify collections...');
+      socket.emit('fetchCollections');
+
+      // Listen for collections data
+      socket.on('collectionsData', (data) => {
+        logMessage('Collections Data: ' + JSON.stringify(data, null, 2));
+      });
+
+      // Listen for errors in fetching collections
+      socket.on('collectionsDataError', (error) => {
+        logMessage('Error fetching collections: ' + error);
+      });
+    });
+
+    // Handle disconnection from server
+    socket.on('disconnect', () => {
+      logMessage('Disconnected from the server.');
+    });
+  </script>
+
+</body>
+</html>
