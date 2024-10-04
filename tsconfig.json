@@ -12,9 +12,8 @@
     "noEmit": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "sourceMap": true,
-    "jsx": "react-jsx",
-  },
-  "include": ["src/**/*"],
+    "sourceMap": true
+    },
+  "include": ["src/**/*", "src/index-main.cjsssss"],
   "exclude": ["node_modules", "dist"]
 }
