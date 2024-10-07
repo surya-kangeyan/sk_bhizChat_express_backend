@@ -10,6 +10,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import { Server } from 'socket.io';
 import { createServer } from 'http';
+import mongoose from 'mongoose';
 
 dotenv.config();
 
@@ -20,6 +21,14 @@ const SOCKET_PORT = parseInt(
 
 const app = express();
 const server = createServer(app);
+
+const url = process.env.MONGODB_URI;
+
+if (!url) {
+  throw new Error('MONGODB_URI is not defined in the environment variables.');
+}
+
+mongoose.set('strictQuery', false);
 
 // Initialize Socket.IO
 const io = new Server(server, {
