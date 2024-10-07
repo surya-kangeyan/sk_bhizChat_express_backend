@@ -27,6 +27,7 @@
     "mongodb": "^6.9.0",
     "mongoose": "^8.7.0",
     "semver": "^7.6.2",
+    "socket.io": "^4.8.0",
     "socket.io-client": "^4.8.0",
     "sqlite3": "^5.1.7",
     "tsconfig-paths": "^4.2.0"

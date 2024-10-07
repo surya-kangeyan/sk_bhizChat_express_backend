@@ -11,6 +11,7 @@ import cors from 'cors';
 import { Server } from 'socket.io';
 import { createServer } from 'http';
 import mongoose from 'mongoose';
+import Session from './models/session';
 
 dotenv.config();
 
@@ -41,6 +42,15 @@ const io = new Server(server, {
     credentials: true,
   },
 });
+
+mongoose
+  .connect(url)
+  .then(() => {
+    console.log('Connected to MongoDB');
+  })
+  .catch((err) => {
+    console.error('Error connecting to MongoDB:', err);
+  });
 
 // Session storage for Shopify
 const sessionStorage = new SQLiteSessionStorage(
@@ -199,6 +209,19 @@ app.get(
 
       // Store the session
 
+      const sessionData = new Session({
+        id: session.id,
+        shop: session.shop,
+        state: session.state,
+        isOnline: session.isOnline,
+        scope: session.scope,
+        expires: session.expires,
+        accessToken: session.accessToken,
+        onlineAccessInfo: session.onlineAccessInfo,
+      })
+
+      await sessionData.save();
+      console.log("Session stored successfully")
       console.log (`Index.ts storing the session fetched from the callback ${session}`)
       // Redirect back to the client
       res.redirect(

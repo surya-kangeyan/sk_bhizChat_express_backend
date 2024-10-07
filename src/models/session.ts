@@ -35,6 +35,5 @@ sessionSchema.set('toJSON', {
   }
 })
 
-const Session = mongoose.model('Session', sessionSchema)
 
-module.exports = Session
+export default mongoose.model('Session', sessionSchema);
