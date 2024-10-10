@@ -16,7 +16,7 @@ console.log(`Connecting to MongoDB at ${url}`);
 mongoose
   .connect(url)
   .then(() => {
-    console.log('Connected to MongoDB');
+    console.log(`Connected to MongoDB at ${url}`);
     const sessionSchema = new mongoose.Schema({
       content: String,
     });

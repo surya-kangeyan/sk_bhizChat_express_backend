@@ -46,16 +46,13 @@ const io = new Server(server, {
 mongoose
   .connect(url)
   .then(() => {
-    console.log('Connected to MongoDB');
+    console.log(`Connected to MongoDB ${url}`);
   })
   .catch((err) => {
     console.error('Error connecting to MongoDB:', err);
   });
 
-// Session storage for Shopify
-const sessionStorage = new SQLiteSessionStorage(
-  './shopify_sessions.db'
-);
+
 
 // Initialize Shopify app
 const shopify = shopifyApp({
@@ -91,7 +88,7 @@ io.on('connection', (socket) => {
 
     // Emit an event to the client with the Shopify auth URL
     socket.emit('redirectToShopify', {
-      url: `http://localhost:3000${shopify.config.auth.path}?shop=suryakang-test-store.myshopify.com`, // This will be '/api/auth'
+      url: `http://localhost:3000${shopify.config.auth.path}?shop=${process.env.SHOP_NAME}`, // This will be '/api/auth'
     });
   });
 
@@ -197,12 +194,26 @@ app.get(
     next: NextFunction
   ) => {
     try {
+     
       const session = res.locals.shopify.session;
       console.log(
         'Authenticated session:',
         session
       );
 
+     
+      const existingSession =
+        await Session.findOne({ id: session.id });
+
+      if (existingSession) {
+
+        await Session.deleteOne({
+          id: session.id,
+        });
+        console.log(
+          'Existing session deleted from MongoDB'
+        );
+      }
       shopifySession = session; // Save the session globally for use in Socket.IO requests
 
       const host = req.query.host as string;
