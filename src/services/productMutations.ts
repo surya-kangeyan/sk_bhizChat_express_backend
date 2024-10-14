@@ -12,7 +12,7 @@ export const createProductWebhook = async (session: Session) => {
         webhookSubscriptionCreate(
           topic: PRODUCTS_CREATE,
           webhookSubscription: {
-            callbackUrl: "https://your-server.com/webhook/products/create",
+            callbackUrl: "http://localhost:3000/webhook/products/create",
             format: JSON
           }
         ) {
@@ -27,10 +27,11 @@ export const createProductWebhook = async (session: Session) => {
       
       `,
       variables: {
-        topic: "PRODUCTS_CREATE",
+        topic: 'PRODUCTS_CREATE',
         webhookSubscription: {
-          callbackUrl: "https://your-server.com/webhook/products/create",
-          format: "JSON",
+          callbackUrl:
+            'http://localhost:3000/webhook/products/create',
+          format: 'JSON',
         },
       },
     },

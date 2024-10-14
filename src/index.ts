@@ -12,6 +12,9 @@ import { Server } from 'socket.io';
 import { createServer } from 'http';
 import mongoose from 'mongoose';
 import Session from './models/session';
+import crypto from 'crypto';
+import { createProductWebhook } from './services/productMutations';
+
 
 dotenv.config();
 
@@ -281,7 +284,8 @@ app.get(
         session
       );
 
-     
+      // await createProductWebhook(session);
+      console.log("Product webhook created and registered")
       const existingSession =
         await Session.findOne({ id: session.id });
 
@@ -328,7 +332,7 @@ app.get(
   }
 );
 
-// Express route to fetch collections (used if needed directly via HTTP)
+// Express route to fetch collections (use if needed directly via HTTP)
 app.get(
   '/api/collects',
   async (req: Request, res: Response) => {
@@ -397,6 +401,30 @@ app.get(
     }
   }
 );
+
+// Webhook handler for product creation
+app.post('/webhook/products/create', async (req: Request, res: Response) => {
+  try {
+    const hmac = req.headers['x-shopify-hmac-sha256'] as string;
+    const secret = process.env.SHOPIFY_API_SECRET || '';
+    const body = JSON.stringify(req.body);
+
+    // Verify the HMAC signature
+    const generatedHmac = crypto.createHmac('sha256', secret).update(body, 'utf8').digest('base64');
+    if (generatedHmac !== hmac) {
+      return res.status(403).send('Webhook verification failed');
+    }
+
+    // Handle the webhook data
+    console.log('Webhook received for product creation:', req.body);
+
+    // Respond to Shopify with a success status
+    res.status(200).send('Webhook received');
+  } catch (error) {
+    console.error('Error handling webhook:', error);
+    res.status(500).send('Error handling webhook');
+  }
+});
 
 // Catch-all route for the app
 app.get('*', (req: Request, res: Response) => {
