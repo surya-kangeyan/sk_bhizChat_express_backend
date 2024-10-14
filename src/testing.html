@@ -2,23 +2,17 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Shopify API Integration</title>
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
   </head>
   <body>
     <h1>Shopify API Integration</h1>
-
+<!-- 
     <button id="begin-auth">Begin Auth</button>
-    <button id="fetch-products">
-      Fetch Products
-    </button>
-    <button id="fetch-collections">
-      Fetch Collections
-    </button>
+    <button id="fetch-products">Fetch Products</button>
+    <button id="fetch-collections">Fetch Collections</button> -->
+    <button id="store-session">Store Session</button> <!-- New button to store session -->
 
     <div id="output"></div>
 
@@ -29,103 +23,122 @@
       });
 
       function logMessage(message) {
-        const output =
-          document.getElementById('output');
-        const newMessage =
-          document.createElement('p');
+        const output = document.getElementById('output');
+        const newMessage = document.createElement('p');
         newMessage.textContent = message;
         output.appendChild(newMessage);
       }
 
       socket.on('connect', () => {
-        logMessage(
-          'Connected to the server with Socket ID: ' +
-            socket.id
-        );
+        logMessage('Connected to the server with Socket ID: ' + socket.id);
       });
 
       socket.on('connect_error', (error) => {
         logMessage('Connection Error: ' + error);
       });
 
-      document
-        .getElementById('begin-auth')
-        .addEventListener('click', () => {
-          logMessage(
-            'Emitting startShopifyAuth...'
-          );
-          socket.emit('startShopifyAuth');
-        });
+      // // Begin Auth Button
+      // document.getElementById('begin-auth').addEventListener('click', () => {
+      //   logMessage('Emitting startShopifyAuth...');
+      //   socket.emit('startShopifyAuth');
+      // });
 
-      socket.on('redirectToShopify', (data) => {
-        logMessage(
-          'Redirect to Shopify Auth URL: ' +
-            data.url
-        );
-        window.location.href = data.url;
+      // socket.on('redirectToShopify', (data) => {
+      //   logMessage('Redirect to Shopify Auth URL: ' + data.url);
+      //   window.location.href = data.url;
+      // });
+
+      // // Fetch Products Button
+      // document.getElementById('fetch-products').addEventListener('click', () => {
+      //   logMessage('Fetching Shopify products...');
+      //   socket.emit('fetchProducts');
+
+      //   // Listen for products data
+      //   socket.on('productsData', (data) => {
+      //     logMessage('Products Data: ' + JSON.stringify(data, null, 2));
+      //   });
+
+      //   // Listen for errors in fetching products
+      //   socket.on('productsDataError', (error) => {
+      //     logMessage('Error fetching products: ' + error);
+      //   });
+      // });
+
+      // // Fetch Collections Button
+      // document.getElementById('fetch-collections').addEventListener('click', () => {
+      //   logMessage('Fetching Shopify collections...');
+      //   socket.emit('fetchCollections');
+
+      //   // Listen for collections data
+      //   socket.on('collectionsData', (data) => {
+      //     logMessage('Collections Data: ' + JSON.stringify(data, null, 2));
+      //   });
+
+      //   // Listen for errors in fetching collections
+      //   socket.on('collectionsDataError', (error) => {
+      //     logMessage('Error fetching collections: ' + error);
+      //   });
+      // });
+
+      // Store Session Button (New)
+     document.getElementById('store-session').addEventListener('click', () => {
+        logMessage('Checking if server is alive...');
+
+        // Step 1: Ping the server first
+        socket.emit('pingServer');
+
+        // Step 2: Wait for the pong response from the server
+        socket.on('pongServer', (data) => {
+          logMessage('Server response: ' + data.message);
+
+          // After receiving pong from server, proceed to store session
+          logMessage('Storing session...');
+
+          // Create a dummy session object
+          const dummySession = {
+          id: 'dummy-session-id-12345',
+          shop: 'dummy-shop.myshopify.com',
+          state: 'active',
+          isOnline: true,
+          scope: 'read_products,write_orders',
+          expires: new Date('2024-12-31T23:59:59Z'),
+          accessToken: 'dummy-access-token-abc123',
+          onlineAccessInfo: {
+            expires_in: 3600,
+            associated_user_scope: 'read_products,write_orders',
+            session: null, // Optional field, can be left as null
+            account_number: null, // Optional field, can be left as null
+            associated_user: {
+              id: 1234567890,
+              first_name: 'John',
+              last_name: 'Doe',
+              email: 'john.doe@example.com',
+              account_owner: true,
+              locale: 'en',
+              collaborator: false,
+              email_verified: true,
+            },
+          },
+        };
+
+          // Emit the storeSession event with the dummy session object
+          socket.emit('storeSession', dummySession);
+
+          // Listen for session stored response
+          socket.on('sessionStored', (data) => {
+            logMessage('Session Stored: ' + data.message);
+          });
+
+          // Listen for errors while storing session
+          socket.on('error', (error) => {
+            logMessage('Error storing session: ' + error);
+          });
+        });
       });
 
-      // Button: Fetch Products (You can add the server-side implementation for this in a similar way as collections)
-      document
-        .getElementById('fetch-products')
-        .addEventListener('click', () => {
-          logMessage(
-            'Fetching Shopify products...'
-          );
-          socket.emit('fetchProducts'); // This should be implemented on the server side
 
-          // Listen for products data
-          socket.on('productsData', (data) => {
-            logMessage(
-              'Products Data: ' +
-                JSON.stringify(data, null, 2)
-            );
-          });
-
-          // Listen for errors in fetching products
-          socket.on(
-            'productsDataError',
-            (error) => {
-              logMessage(
-                'Error fetching products: ' +
-                  error
-              );
-            }
-          );
-        });
-
-      // Button: Fetch Collections
-      document
-        .getElementById('fetch-collections')
-        .addEventListener('click', () => {
-          logMessage(
-            'Fetching Shopify collections...'
-          );
-          socket.emit('fetchCollections');
-
-          // Listen for collections data
-          socket.on('collectionsData', (data) => {
-            logMessage(
-              'Collections Data: ' +
-                JSON.stringify(data, null, 2)
-            );
-          });
-
-          // Listen for errors in fetching collections
-          socket.on(
-            'collectionsDataError',
-            (error) => {
-              logMessage(
-                'Error fetching collections: ' +
-                  error
-              );
-            }
-          );
-        });
       socket.on('disconnect', () => {
-        logMessage(
-          'Disconnected from the server.'
-        );
+        logMessage('Disconnected from the server.');
       });
     </script>
   </body>

@@ -11,6 +11,7 @@ import cors from 'cors';
 import { Server } from 'socket.io';
 import { createServer } from 'http';
 import mongoose from 'mongoose';
+import Session from './models/session';
 
 dotenv.config();
 
@@ -34,18 +35,24 @@ mongoose.set('strictQuery', false);
 const io = new Server(server, {
   transports: ['websocket'],
   cors: {
-    origin:
-      process.env.FRONTEND_URL ||
-      'http://localhost:3000',
-    methods: ['GET', 'POST'],
+    origin:"*",
+      // process.env.FRONTEND_URL ||
+      // 'http://localhost:3000',
+    methods: ['GET', 'POST','PUT','DELETE'],
     credentials: true,
   },
 });
 
-// Session storage for Shopify
-const sessionStorage = new SQLiteSessionStorage(
-  './shopify_sessions.db'
-);
+mongoose
+  .connect(url)
+  .then(() => {
+    console.log(`Connected to MongoDB ${url}`);
+  })
+  .catch((err) => {
+    console.error('Error connecting to MongoDB:', err);
+  });
+
+
 
 // Initialize Shopify app
 const shopify = shopifyApp({
@@ -81,9 +88,89 @@ io.on('connection', (socket) => {
 
     // Emit an event to the client with the Shopify auth URL
     socket.emit('redirectToShopify', {
-      url: `http://localhost:3000${shopify.config.auth.path}?shop=suryakang-test-store.myshopify.com`, // This will be '/api/auth'
+      url: `http://localhost:3000${shopify.config.auth.path}?shop=${process.env.SHOP_NAME}`, // This will be '/api/auth'
     });
   });
+
+  socket.on('pingServer', () => {
+    console.log('Ping received from client');
+    // Respond to the ping
+    socket.emit('pongServer', {
+      message: 'Server is alive',
+    });
+  });
+  // Storing sessions using socket.io
+  socket.on(
+    'storeSession',
+    async (sessionData) => {
+      try {
+        console.log(
+          'Received session data:',
+          sessionData
+        );
+
+        // Validate session data
+        if (
+          !sessionData ||
+          !sessionData.id ||
+          !sessionData.shop
+        ) {
+          socket.emit(
+            'error',
+            'Invalid session data'
+          );
+          return;
+        }
+
+        // Check if session already exists
+        const existingSession =
+          await Session.findOne({
+            id: sessionData.id,
+          });
+        if (existingSession) {
+          // If session exists, delete it first
+          await Session.deleteOne({
+            id: sessionData.id,
+          });
+          console.log(
+            'Existing session deleted from MongoDB'
+          );
+        }
+
+        // Create a new session document
+        const newSession = new Session({
+          id: sessionData.id,
+          shop: sessionData.shop,
+          state: sessionData.state,
+          isOnline: sessionData.isOnline,
+          scope: sessionData.scope,
+          expires: sessionData.expires,
+          accessToken: sessionData.accessToken,
+          onlineAccessInfo:
+            sessionData.onlineAccessInfo,
+        });
+
+        // Save the session to MongoDB
+        await newSession.save();
+
+        console.log(
+          'Session stored successfully'
+        );
+        socket.emit('sessionStored', {
+          message: 'Session stored successfully',
+        });
+      } catch (error) {
+        console.error(
+          'Error storing session:',
+          error
+        );
+        socket.emit(
+          'error',
+          'Failed to store session'
+        );
+      }
+    }
+  );
 
   // Fetch collections via WebSocket
   socket.on('fetchCollections', async () => {
@@ -161,16 +248,16 @@ io.on('connection', (socket) => {
   });
 });
 
-// CORS Middleware
-app.use(
-  cors({
-    origin:
-      process.env.FRONTEND_URL ||
-      'http://localhost:3000',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true,
-  })
-);
+// // CORS Middleware
+// app.use(
+//   cors({
+//     origin:
+//       process.env.FRONTEND_URL ||
+//       'http://localhost:3000',
+//     methods: ['GET', 'POST', 'PUT', 'DELETE'],
+//     credentials: true,
+//   })
+// );
 
 // Shopify OAuth routes
 app.get(
@@ -187,18 +274,45 @@ app.get(
     next: NextFunction
   ) => {
     try {
+     
       const session = res.locals.shopify.session;
       console.log(
         'Authenticated session:',
         session
       );
 
+     
+      const existingSession =
+        await Session.findOne({ id: session.id });
+
+      if (existingSession) {
+
+        await Session.deleteOne({
+          id: session.id,
+        });
+        console.log(
+          'Existing session deleted from MongoDB'
+        );
+      }
       shopifySession = session; // Save the session globally for use in Socket.IO requests
 
       const host = req.query.host as string;
 
       // Store the session
 
+      const sessionData = new Session({
+        id: session.id,
+        shop: session.shop,
+        state: session.state,
+        isOnline: session.isOnline,
+        scope: session.scope,
+        expires: session.expires,
+        accessToken: session.accessToken,
+        onlineAccessInfo: session.onlineAccessInfo,
+      })
+
+      await sessionData.save();
+      console.log("Session stored successfully")
       console.log (`Index.ts storing the session fetched from the callback ${session}`)
       // Redirect back to the client
       res.redirect(
