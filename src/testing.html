@@ -7,14 +7,18 @@
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
   </head>
   <body>
-    <h1>Shopify API Integration</h1>
+    <!-- <h1>Shopify API Integration</h1> -->
 <!-- 
     <button id="begin-auth">Begin Auth</button>
     <button id="fetch-products">Fetch Products</button>
     <button id="fetch-collections">Fetch Collections</button> -->
     <button id="store-session">Store Session</button> <!-- New button to store session -->
 
-    <div id="output"></div>
+   <!-- <h2>OpenAI API Testing</h2> -->
+    <input type="text" id="openai-prompt" placeholder="Enter your prompt" />
+    <button id="send-prompt">Send Prompt</button> <!-- Button to send OpenAI prompt -->
+
+    <div id="output"></div> <!-- For displaying messages -->
 
     <script>
       const socket = io('http://localhost:3000', {
@@ -136,6 +140,24 @@
         });
       });
 
+      document.getElementById('send-prompt').addEventListener('click', () => {
+        const prompt = document.getElementById('openai-prompt').value;
+        logMessage('Sending prompt to OpenAI: ' + prompt);
+
+        // Emit the event to the server with the prompt
+        socket.emit('openaiPrompt', { prompt });
+
+        // Listen for the response from the server
+        socket.on('openaiResponse', (data) => {
+          console.log("Testing.html OpenAI Response:", data.success);
+          logMessage('OpenAI Response: ' + data.result);
+        });
+
+        // Listen for any error from OpenAI request
+        socket.on('openaiError', (error) => {
+          logMessage('Error from OpenAI: ' + error);
+        });
+      });
 
       socket.on('disconnect', () => {
         logMessage('Disconnected from the server.');
