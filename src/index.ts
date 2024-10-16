@@ -1,5 +1,4 @@
 import { shopifyApp } from '@shopify/shopify-app-express';
-import { SQLiteSessionStorage } from '@shopify/shopify-app-session-storage-sqlite';
 import express, {
   Request,
   Response,
@@ -7,14 +6,11 @@ import express, {
 } from 'express';
 import axios from 'axios';
 import dotenv from 'dotenv';
-import cors from 'cors';
 import { Server } from 'socket.io';
 import { createServer } from 'http';
 import mongoose from 'mongoose';
 import Session from './models/session';
 import crypto from 'crypto';
-import OpenAI from 'openai';
-import { createProductWebhook } from './services/productMutations';
 
 dotenv.config();
 
@@ -25,18 +21,22 @@ const SOCKET_PORT = parseInt(
 
 const app = express();
 const server = createServer(app);
-
 const url = process.env.MONGODB_URI;
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+
 if (!url) {
-  throw new Error(
-    'MONGODB_URI is not defined in the environment variables.'
-  );
+  throw new Error('MONGODB_URI is not defined in the environment variables.');
 }
 
 mongoose.set('strictQuery', false);
+
+mongoose
+  .connect(url)
+  .then(() => {
+    console.log(`Connected to MongoDB ${url}`);
+  })
+  .catch((err) => {
+    console.error('Error connecting to MongoDB:', err);
+  });
 
 // Initialize Socket.IO
 const io = new Server(server, {
@@ -49,18 +49,6 @@ const io = new Server(server, {
     credentials: true,
   },
 });
-
-mongoose
-  .connect(url)
-  .then(() => {
-    console.log(`Connected to MongoDB ${url}`);
-  })
-  .catch((err) => {
-    console.error(
-      'Error connecting to MongoDB:',
-      err
-    );
-  });
 
 // Initialize Shopify app
 const shopify = shopifyApp({
@@ -261,67 +249,67 @@ io.on('connection', (socket) => {
     },
   ];
 
-  // Communication route for OpenAI API
-  socket.on('openaiPrompt', async (data) => {
-    const { prompt } = data;
-     conversationHistory = [
-       {
-         role: 'system',
-         content:
-           process.env.OPENAI_AGENT_PROMPT || '',
-       },
-     ];
-    conversationHistory.push({
-      role: 'user',
-      content: prompt,
-    });
+  // // Communication route for OpenAI API
+  // socket.on('openaiPrompt', async (data) => {
+  //   const { prompt } = data;
+  //    conversationHistory = [
+  //      {
+  //        role: 'system',
+  //        content:
+  //          process.env.OPENAI_AGENT_PROMPT || '',
+  //      },
+  //    ];
+  //   conversationHistory.push({
+  //     role: 'user',
+  //     content: prompt,
+  //   });
 
-    console.log(
-      'Prompt received from client:',
-      prompt
-    );
-    try {
-      // Send the prompt to OpenAI API
-      const response =
-        await openai.chat.completions.create({
-          model: 'gpt-3.5-turbo', // chat model
-          messages: conversationHistory,
-          max_tokens: 1000,
-        });
-      console.log(
-        'Index.ts OpenAI response:',
-        response.choices[0]?.message?.content
-      );
+  //   console.log(
+  //     'Prompt received from client:',
+  //     prompt
+  //   );
+  //   try {
+  //     // Send the prompt to OpenAI API
+  //     const response =
+  //       await openai.chat.completions.create({
+  //         model: 'gpt-3.5-turbo', // chat model
+  //         messages: conversationHistory,
+  //         max_tokens: 1000,
+  //       });
+  //     console.log(
+  //       'Index.ts OpenAI response:',
+  //       response.choices[0]?.message?.content
+  //     );
 
-      const aiResponse =
-        response.choices[0].message?.content ??
-        'Empty response from OpenAI';
+  //     const aiResponse =
+  //       response.choices[0].message?.content ??
+  //       'Empty response from OpenAI';
 
-      // Add the assistant's response to the conversation history
-      conversationHistory.push({
-        role: 'assistant',
-        content: aiResponse,
-      });
+  //     // Add the assistant's response to the conversation history
+  //     conversationHistory.push({
+  //       role: 'assistant',
+  //       content: aiResponse,
+  //     });
 
-      // Emit the result back to the client
-      socket.emit('openaiResponse', {
-        success: true,
-        result:
-          response.choices[0]?.message?.content ??
-          '',
-      });
-    } catch (error) {
-      console.error(
-        'Error with OpenAI API:',
-        (error as Error).message
-      );
-      socket.emit('openaiResponse', {
-        success: false,
-        message:
-          'An error occurred with the OpenAI API',
-      });
-    }
-  });
+  //     // Emit the result back to the client
+  //     socket.emit('openaiResponse', {
+  //       success: true,
+  //       result:
+  //         response.choices[0]?.message?.content ??
+  //         '',
+  //     });
+  //   } catch (error) {
+  //     console.error(
+  //       'Error with OpenAI API:',
+  //       (error as Error).message
+  //     );
+  //     socket.emit('openaiResponse', {
+  //       success: false,
+  //       message:
+  //         'An error occurred with the OpenAI API',
+  //     });
+  //   }
+  // });
 
   socket.on('disconnect', () => {
     console.log('User disconnected');
