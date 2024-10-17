@@ -1,572 +1,130 @@
-import { shopifyApp } from '@shopify/shopify-app-express';
-import express, {
-  Request,
-  Response,
-  NextFunction,
-} from 'express';
-import axios from 'axios';
-import dotenv from 'dotenv';
+import express, { Request, Response, NextFunction } from 'express';
 import { Server } from 'socket.io';
 import { createServer } from 'http';
+import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import Session from './models/session';
-import crypto from 'crypto';
 import OpenAI from 'openai';
-
-//for deployment
+import { ChatCompletionMessageParam } from 'openai/resources/chat';
 
 dotenv.config();
 
-const SOCKET_PORT = (() => {
-  const port = parseInt(process.env.SOCKET_PORT || '', 10);
-  if (isNaN(port) || port < 0 || port >= 65536) {
-    return 3000; // Default port if invalid
-  }
-  return port;
-})();
+const PORT = process.env.PORT || 3000;
+const MONGODB_URI = process.env.MONGODB_URI;
 
-const app = express();
-const server = createServer(app);
-const url = process.env.MONGODB_URI;
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-if (!url) {
+if (!MONGODB_URI) {
   throw new Error('MONGODB_URI is not defined in the environment variables.');
 }
 
-mongoose.set('strictQuery', false);
-
-mongoose
-  .connect(url)
-  .then(() => {
-    console.log(`Connected to MongoDB ${url}`);
-  })
-  .catch((err) => {
-    console.error('Error connecting to MongoDB:', err);
-  });
+const app = express();
+const server = createServer(app);
 
 // Initialize Socket.IO
 const io = new Server(server, {
   transports: ['websocket'],
   cors: {
     origin: '*',
-    // process.env.FRONTEND_URL ||
-    // 'http://localhost:3000',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
   },
 });
 
-// Initialize Shopify app
-// const shopify = shopifyApp({
-//   useOnlineTokens: true,
-//   api: {
-//     apiKey: process.env.SHOPIFY_API_KEY || '',
-//     apiSecretKey:
-//       process.env.SHOPIFY_API_SECRET || '',
-//     scopes: process.env.SHOPIFY_SCOPES
-//       ? process.env.SHOPIFY_SCOPES.split(',')
-//       : [],
-//     hostScheme: 'http',
-//     hostName: `localhost:${SOCKET_PORT}`,
-//   },
-//   auth: {
-//     path: '/api/auth',
-//     callbackPath: '/api/auth/callback',
-//   },
-//   webhooks: {
-//     path: '/api/webhooks',
-//   },
-// });
+// Connect to MongoDB
+mongoose.set('strictQuery', false);
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch((err) => console.error('Error connecting to MongoDB:', err));
 
-// let shopifySession: any;
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
-// Handling Shopify OAuth initiation from Socket.IO
+// Socket.IO connection logic
 io.on('connection', (socket) => {
   console.log('A user connected: ', socket.id);
 
-  // Listen for event to start Shopify OAuth
-  // socket.on('startShopifyAuth', () => {
-  //   console.log('Starting Shopify OAuth process');
-
-  //   // Emit an event to the client with the Shopify auth URL
-  //   socket.emit('redirectToShopify', {
-  //     url: `http://localhost:3000${shopify.config.auth.path}?shop=${process.env.SHOP_NAME}`, // This will be '/api/auth'
-  //   });
-  // });
-
   socket.on('pingServer', () => {
     console.log('Ping received from client');
-    // Respond to the ping
-    socket.emit('pongServer', {
-      message: 'Server is alive',
-    });
+    socket.emit('pongServer', { message: 'Server is alive' });
   });
-  // Storing sessions using socket.io
-  socket.on(
-    'storeSession',
-    async (sessionData) => {
-      try {
-        console.log(
-          'Received session data:',
-          sessionData
-        );
 
-        // Validate session data
-        if (
-          !sessionData ||
-          !sessionData.id ||
-          !sessionData.shop
-        ) {
-          socket.emit(
-            'error',
-            'Invalid session data'
-          );
-          return;
-        }
+  socket.on('storeSession', async (sessionData) => {
+    try {
+      console.log('Received session data:', sessionData);
 
-        // Check if session already exists
-        const existingSession =
-          await Session.findOne({
-            id: sessionData.id,
-          });
-        if (existingSession) {
-          // If session exists, delete it first
-          await Session.deleteOne({
-            id: sessionData.id,
-          });
-          console.log(
-            'Existing session deleted from MongoDB'
-          );
-        }
-
-        // Create a new session document
-        const newSession = new Session({
-          id: sessionData.id,
-          shop: sessionData.shop,
-          state: sessionData.state,
-          isOnline: sessionData.isOnline,
-          scope: sessionData.scope,
-          expires: sessionData.expires,
-          accessToken: sessionData.accessToken,
-          onlineAccessInfo:
-            sessionData.onlineAccessInfo,
-        });
-
-        // Save the session to MongoDB
-        await newSession.save();
-
-        console.log(
-          'Session stored successfully'
-        );
-        socket.emit('sessionStored', {
-          message: 'Session stored successfully',
-        });
-      } catch (error) {
-        console.error(
-          'Error storing session:',
-          error
-        );
-        socket.emit(
-          'error',
-          'Failed to store session'
-        );
+      if (!sessionData || !sessionData.id || !sessionData.shop) {
+        socket.emit('error', 'Invalid session data');
+        return;
       }
+
+      await Session.findOneAndDelete({ id: sessionData.id });
+      const newSession = new Session(sessionData);
+      await newSession.save();
+
+      console.log('Session stored successfully');
+      socket.emit('sessionStored', { message: 'Session stored successfully' });
+    } catch (error) {
+      console.error('Error storing session:', error);
+      socket.emit('error', 'Failed to store session');
     }
-  );
+  });
 
-  // Fetch collections via WebSocket
-  // socket.on('fetchCollections', async () => {
-  //   console.log(
-  //     'Received request to fetch collections'
-  //   );
-  //   try {
-  //     if (
-  //       !shopifySession ||
-  //       !shopifySession.shop
-  //     ) {
-  //       socket.emit(
-  //         'error',
-  //         'Shopify session is not available.'
-  //       );
-  //       return;
-  //     }
-
-  //     const shop = shopifySession.shop;
-  //     const accessToken =
-  //       shopifySession.accessToken;
-
-  //     const graphqlQuery = `
-  //     {
-  //       collections(first: 10) {
-  //         edges {
-  //           node {
-  //             id
-  //             title
-  //             handle
-  //             updatedAt
-  //             products(first: 8) {
-  //               edges {
-  //                 node {
-  //                   id
-  //                   title
-  //                   description
-  //                 }
-  //               }
-  //             }
-  //           }
-  //         }
-  //       }
-  //     }`;
-
-  //     const graphqlResponse = await axios.post(
-  //       `https://${shop}/admin/api/2024-07/graphql.json`,
-  //       { query: graphqlQuery },
-  //       {
-  //         headers: {
-  //           'X-Shopify-Access-Token': accessToken,
-  //           'Content-Type': 'application/json',
-  //         },
-  //       }
-  //     );
-
-  //     socket.emit(
-  //       'collectionsData',
-  //       graphqlResponse.data
-  //     );
-  //   } catch (error) {
-  //     console.error(
-  //       'Error fetching collections via GraphQL:',
-  //       error
-  //     );
-  //     socket.emit(
-  //       'collectionsDataError',
-  //       'Failed to fetch collections'
-  //     );
-  //   }
-  // });
-
-  let conversationHistory: Array<{
-    role: 'system' | 'user' | 'assistant';
-    content: string;
-  }> = [
-    {
-      role: 'system',
-      content: process.env.OPENAI_AGENT_PROMPT || '',
-    },
-  ];
-
-  // Communication route for OpenAI API
   socket.on('openaiPrompt', async (data) => {
     const { prompt } = data;
-     conversationHistory = [
-       {
-         role: 'system',
-         content:
-           process.env.OPENAI_AGENT_PROMPT || '',
-       },
-     ];
-    conversationHistory.push({
-      role: 'user',
-      content: prompt,
-    });
-
-    console.log(
-      'Prompt received from client:',
-      prompt
-    );
+    let conversationHistory: ChatCompletionMessageParam[] = [
+      { role: 'system', content: process.env.OPENAI_AGENT_PROMPT || '' },
+      { role: 'user', content: prompt }
+    ];
+  
+    console.log('Prompt received from client:', prompt);
+  
     try {
-      // Send the prompt to OpenAI API
-    //  const response =
-    //    await openai.completions.create({
-    //      model:
-    //         // your fine-tuned model ID
-    //      prompt: conversationHistory.join('\n'), // convert the chat history into a prompt
-    //      max_tokens: 1000,
-    //    });
-
-       const response =
-         await openai.chat.completions.create({
-           model: 'ft:gpt-4o-mini-2024-07-18:bhizchat::AJAXyweI',// or your specific model ID
-           messages: conversationHistory,
-           max_tokens: 1000,
-         });
-      console.log(
-        'Index.ts OpenAI response:',
-        response.choices[0]?.message?.content
-      );
-
-      const aiResponse =
-        response.choices[0]?.message?.content ??
-        'Empty response from OpenAI';
-
-      // Add the assistant's response to the conversation history
-      conversationHistory.push({
-        role: 'assistant',
-        content: aiResponse,
+      const response = await openai.chat.completions.create({
+        model: 'ft:gpt-4o-mini-2024-07-18:bhizchat::AJAXyweI',
+        messages: conversationHistory,
+        max_tokens: 1000,
       });
-
-      // Emit the result back to the client
+  
+      const aiResponse = response.choices[0]?.message?.content ?? 'Empty response from OpenAI';
+      console.log('OpenAI response:', aiResponse);
+  
+      conversationHistory.push({ role: 'assistant', content: aiResponse });
+  
       socket.emit('openaiResponse', {
         success: true,
-        result:
-          response.choices[0]?.message?.content ??
-          '',
+        result: aiResponse,
       });
     } catch (error) {
-      console.error(
-        'Error with OpenAI API:',
-        (error as Error).message
-      );
+      console.error('Error with OpenAI API:', (error as Error).message);
       socket.emit('openaiResponse', {
         success: false,
-        message:
-          'An error occurred with the OpenAI API',
+        message: 'An error occurred with the OpenAI API',
       });
     }
   });
+
   socket.on('disconnect', () => {
     console.log('User disconnected');
   });
 });
 
-// // CORS Middleware
-// app.use(
-//   cors({
-//     origin:
-//       process.env.FRONTEND_URL ||
-//       'http://localhost:3000',
-//     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-//     credentials: true,
-//   })
-// );
-
-// Shopify OAuth routes
-// app.get(
-//   shopify.config.auth.path,
-//   shopify.auth.begin()
-// );
-
-// app.get(
-//   shopify.config.auth.callbackPath,
-//   shopify.auth.callback(),
-//   async (
-//     req: Request,
-//     res: Response,
-//     next: NextFunction
-//   ) => {
-//     try {
-//       const session = res.locals.shopify.session;
-//       console.log(
-//         'Authenticated session:',
-//         session
-//       );
-
-//       // await createProductWebhook(session);
-//       console.log(
-//         'Product webhook created and registered'
-//       );
-//       const existingSession =
-//         await Session.findOne({ id: session.id });
-
-//       if (existingSession) {
-//         await Session.deleteOne({
-//           id: session.id,
-//         });
-//         console.log(
-//           'Existing session deleted from MongoDB'
-//         );
-//       }
-//       shopifySession = session; // Save the session globally for use in Socket.IO requests
-
-//       const host = req.query.host as string;
-
-//       // Store the session
-
-//       const sessionData = new Session({
-//         id: session.id,
-//         shop: session.shop,
-//         state: session.state,
-//         isOnline: session.isOnline,
-//         scope: session.scope,
-//         expires: session.expires,
-//         accessToken: session.accessToken,
-//         onlineAccessInfo:
-//           session.onlineAccessInfo,
-//       });
-
-//       await sessionData.save();
-//       console.log('Session stored successfully');
-//       console.log(
-//         `Index.ts storing the session fetched from the callback ${session}`
-//       );
-//       // Redirect back to the client
-//       res.redirect(
-//         `/?shop=${session.shop}&host=${host}`
-//       );
-//     } catch (error) {
-//       console.error(
-//         'Error in the authentication callback:',
-//         error
-//       );
-//       next(error);
-//     }
-//   }
-// );
-
-// // Express route to fetch collections (use if needed directly via HTTP)
-// app.get(
-//   '/api/collects',
-//   async (req: Request, res: Response) => {
-//     try {
-//       if (
-//         !shopifySession ||
-//         !shopifySession.shop
-//       ) {
-//         return res
-//           .status(400)
-//           .send(
-//             'Shopify session is not available.'
-//           );
-//       }
-
-//       const shop = shopifySession.shop;
-//       const accessToken =
-//         shopifySession.accessToken;
-
-//       const graphqlQuery = `
-//     {
-//       collections(first: 10) {
-//         edges {
-//           node {
-//             id
-//             title
-//             handle
-//             updatedAt
-//             products(first: 8) {
-//               edges {
-//                 node {
-//                   id
-//                   title
-//                   description
-//                 }
-//               }
-//             }
-//           }
-//         }
-//       }
-//     }`;
-
-//       const graphqlResponse = await axios.post(
-//         `https://${shop}/admin/api/2024-07/graphql.json`,
-//         { query: graphqlQuery },
-//         {
-//           headers: {
-//             'X-Shopify-Access-Token': accessToken,
-//             'Content-Type': 'application/json',
-//           },
-//         }
-//       );
-
-//       res.json(graphqlResponse.data);
-//     } catch (error) {
-//       console.error(
-//         'Error fetching collections via GraphQL:',
-//         error
-//       );
-//       res.status(500).json({
-//         error:
-//           'Failed to fetch collections via GraphQL',
-//       });
-//     }
-//   }
-// );
-
-// // Webhook handler for product creation
-// app.post(
-//   '/webhook/products/create',
-//   async (req: Request, res: Response) => {
-//     try {
-//       const hmac = req.headers[
-//         'x-shopify-hmac-sha256'
-//       ] as string;
-//       const secret =
-//         process.env.SHOPIFY_API_SECRET || '';
-//       const body = JSON.stringify(req.body);
-
-//       // Verify the HMAC signature
-//       const generatedHmac = crypto
-//         .createHmac('sha256', secret)
-//         .update(body, 'utf8')
-//         .digest('base64');
-//       if (generatedHmac !== hmac) {
-//         return res
-//           .status(403)
-//           .send('Webhook verification failed');
-//       }
-
-//       // Handle the webhook data
-//       console.log(
-//         'Webhook received for product creation:',
-//         req.body
-//       );
-
-//       // Respond to Shopify with a success status
-//       res.status(200).send('Webhook received');
-//     } catch (error) {
-//       console.error(
-//         'Error handling webhook:',
-//         error
-//       );
-//       res
-//         .status(500)
-//         .send('Error handling webhook');
-//     }
-//   }
-// );
-
-// // Catch-all route for the app
-// app.get('*', (req: Request, res: Response) => {
-//   const shop = req.query.shop;
-//   if (shop) {
-//     res
-//       .status(200)
-//       .send(`App is installed for shop: ${shop}`);
-//   } else {
-//     res
-//       .status(400)
-//       .send('Missing shop parameter');
-//   }
-// });
-
-// // Error handling middleware
-// app.use(
-//   (
-//     err: any,
-//     req: Request,
-//     res: Response,
-//     next: NextFunction
-//   ) => {
-//     console.error('Unhandled error:', err);
-//     res
-//       .status(500)
-//       .send('An unexpected error occurred');
-//   }
-// );
+// Test route
 app.get('/test', (req: Request, res: Response) => {
   res.json({
     message: 'Server is running correctly',
     timestamp: new Date().toISOString(),
-    socketPort: SOCKET_PORT
+    port: PORT
   });
 });
 
-// Start the server with Socket.IO and Express
-server.listen(SOCKET_PORT, () => {
-  console.log(
-    `Socket.IO server running on http://localhost:${SOCKET_PORT}`
-  );
+// Error handling middleware
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  console.error('Unhandled error:', err);
+  res.status(500).send('An unexpected error occurred');
+});
+
+// Start the server
+server.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
 });
