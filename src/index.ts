@@ -556,6 +556,13 @@ io.on('connection', (socket) => {
 //       .send('An unexpected error occurred');
 //   }
 // );
+app.get('/test', (req: Request, res: Response) => {
+  res.json({
+    message: 'Server is running correctly',
+    timestamp: new Date().toISOString(),
+    socketPort: SOCKET_PORT
+  });
+});
 
 // Start the server with Socket.IO and Express
 server.listen(SOCKET_PORT, () => {
