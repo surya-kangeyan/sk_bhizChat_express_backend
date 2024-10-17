@@ -13,6 +13,8 @@ import Session from './models/session';
 import crypto from 'crypto';
 import OpenAI from 'openai';
 
+//for deployment
+
 dotenv.config();
 
 const SOCKET_PORT = (() => {
