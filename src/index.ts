@@ -4,6 +4,7 @@ import { createServer } from 'http';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 // import Session from './models/session';
+import Session from './models/session.js';
 import OpenAI from 'openai';
 import { ChatCompletionMessageParam } from 'openai/resources/chat';
 
@@ -49,26 +50,26 @@ io.on('connection', (socket) => {
     socket.emit('pongServer', { message: 'Server is alive' });
   });
 
-  // socket.on('storeSession', async (sessionData) => {
-  //   try {
-  //     console.log('Received session data:', sessionData);
+  socket.on('storeSession', async (sessionData) => {
+    try {
+      console.log('Received session data:', sessionData);
 
-  //     if (!sessionData || !sessionData.id || !sessionData.shop) {
-  //       socket.emit('error', 'Invalid session data');
-  //       return;
-  //     }
+      if (!sessionData || !sessionData.id || !sessionData.shop) {
+        socket.emit('error', 'Invalid session data');
+        return;
+      }
 
-  //     await Session.findOneAndDelete({ id: sessionData.id });
-  //     const newSession = new Session(sessionData);
-  //     await newSession.save();
+      await Session.findOneAndDelete({ id: sessionData.id });
+      const newSession = new Session(sessionData);
+      await newSession.save();
 
-  //     console.log('Session stored successfully');
-  //     socket.emit('sessionStored', { message: 'Session stored successfully' });
-  //   } catch (error) {
-  //     console.error('Error storing session:', error);
-  //     socket.emit('error', 'Failed to store session');
-  //   }
-  // });
+      console.log('Session stored successfully');
+      socket.emit('sessionStored', { message: 'Session stored successfully' });
+    } catch (error) {
+      console.error('Error storing session:', error);
+      socket.emit('error', 'Failed to store session');
+    }
+  });
 
   socket.on('openaiPrompt', async (data) => {
     const { prompt } = data;

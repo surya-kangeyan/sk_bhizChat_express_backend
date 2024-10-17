@@ -12,7 +12,9 @@
     "noEmit": false,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "allowJs": true,
+    "checkJs": false
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"],
