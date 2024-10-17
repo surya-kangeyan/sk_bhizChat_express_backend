@@ -282,19 +282,27 @@ io.on('connection', (socket) => {
     );
     try {
       // Send the prompt to OpenAI API
-      const response =
-        await openai.chat.completions.create({
-          model: 'gpt-3.5-turbo', // chat model
-          messages: conversationHistory,
-          max_tokens: 1000,
-        });
+    //  const response =
+    //    await openai.completions.create({
+    //      model:
+    //         // your fine-tuned model ID
+    //      prompt: conversationHistory.join('\n'), // convert the chat history into a prompt
+    //      max_tokens: 1000,
+    //    });
+
+       const response =
+         await openai.chat.completions.create({
+           model: 'ft:gpt-4o-mini-2024-07-18:bhizchat::AJAXyweI',// or your specific model ID
+           messages: conversationHistory,
+           max_tokens: 1000,
+         });
       console.log(
         'Index.ts OpenAI response:',
         response.choices[0]?.message?.content
       );
 
       const aiResponse =
-        response.choices[0].message?.content ??
+        response.choices[0]?.message?.content ??
         'Empty response from OpenAI';
 
       // Add the assistant's response to the conversation history
