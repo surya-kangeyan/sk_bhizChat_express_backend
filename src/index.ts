@@ -20,7 +20,7 @@ const app = express();
 const server = createServer(app);
 
 const io = new Server(server, {
-  transports: ['websocket'],
+  transports: ['websocket', 'polling'],
   cors: {
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
