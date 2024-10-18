@@ -80,7 +80,16 @@ SHOPIFY_API_KEY: Your Shopify app API key, which you can get from the Shopify Pa
 SHOPIFY_API_SECRET: Your Shopify app secret key.
 SHOPIFY_SCOPES: A comma-separated list of API access scopes for your Shopify app. Examples include write_products, read_products.
 SOCKET_PORT: The port on which your Socket.IO server will run.
-FRONTEND_URL: The URL of your frontend application (default is http://localhost:3000).
+
+# OpenAI
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_AGENT_PROMPT=your_custom_prompt_for_openai_agent
+
+# Pinecone
+PINECONE_API_KEY=your_pinecone_api_key
+
+# MongoDB
+MONGODB_URI=mongodb://localhost:27017/your_database_name
 ```
 # Running the Server
 Once you have set up the environment variables and installed the dependencies, you can start the server.
@@ -111,21 +120,26 @@ The app can be accessed via the URL http://localhost:3000 (or your configured SO
 
 ## API Endpoints
 
-- Shopify OAuth Start: GET /api/auth?shop ="YOUR_SHOP_NAME"
+- Shopify OAuth Start: `GET /api/auth?shop=YOUR_SHOP_NAME`
+- Shopify OAuth Callback: `GET /api/auth/callback`
+- Fetch Collections (HTTP): `GET /api/collects`
 
-   -  This endpoint initiates the OAuth process with Shopify Store.
-- Shopify OAuth Callback: GET /api/auth/callback
+## WebSocket Events
 
-   - Handles the callback from Shopify after the OAuth process.
-- Fetch Collections (HTTP): GET /api/collects
+- `startShopifyAuth`: Initiates the Shopify OAuth process
+- `storeSession`: Stores the Shopify session
+- `fetchAndStoreAllProducts`: Fetches all products from Shopify and stores them in Pinecone
+- `queryProducts`: Queries products using OpenAI and Pinecone
+- `fetchCollections`: Fetches Shopify collections
+- `openaiPrompt`: Sends a prompt to OpenAI for processing
 
-   - This endpoint fetches Shopify collections via the GraphQL API.
-# WebSocket Events
-- startShopifyAuth
+For detailed usage of these events, refer to the `src/index.ts` file:
 
-   - Starts the Shopify OAuth process.
-   - Emits redirectToShopify event with the Shopify auth URL.
--  fetchCollections
 
-   - Fetches Shopify collections via the GraphQL API.
-   - Emits collectionsData with the fetched collections or collectionsDataError on failure.
+## Troubleshooting
+
+- If you encounter CORS issues, ensure that your `FRONTEND_URL` in the `.env` file matches your frontend application's URL.
+- For MongoDB connection issues, verify that your MongoDB server is running and the `MONGODB_URI` in the `.env` file is correct.
+- If Shopify authentication fails, double-check your `SHOPIFY_API_KEY` and `SHOPIFY_API_SECRET` in the `.env` file.
+
+For any other issues, please check the console logs for error messages and ensure all environment variables are correctly set.
