@@ -1,10 +1,19 @@
 import { shopifyApp } from '@shopify/shopify-app-express';
+import {
+  fetchAllProducts,
+  ShopifyProduct,
+} from './requests/productFetchReq';
+
 import { SQLiteSessionStorage } from '@shopify/shopify-app-session-storage-sqlite';
 import express, {
   Request,
   Response,
   NextFunction,
 } from 'express';
+// import pinecone from 'pinecone-client';
+import { queryAndGenerateResponse } from './socketHanlders/queryAndGenerateRagReposne';
+
+import { Pinecone } from '@pinecone-database/pinecone';
 import axios from 'axios';
 import dotenv from 'dotenv';
 import cors from 'cors';
@@ -27,7 +36,7 @@ const app = express();
 const server = createServer(app);
 
 const url = process.env.MONGODB_URI;
-const openai = new OpenAI({
+export const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 if (!url) {
@@ -35,6 +44,29 @@ if (!url) {
     'MONGODB_URI is not defined in the environment variables.'
   );
 }
+export const pc = new Pinecone({
+  apiKey: process.env.PINECONE_API_KEY || '',
+});
+
+// // Update the index initialization:
+// const initializePineconeIndex = async () => {
+//   await pc.createIndex({
+//     name: 'bhizchat-rag',
+//     dimension: 1536,
+//     metric: 'cosine',
+//     spec: {
+//       serverless: {
+//         cloud: 'aws',
+//         region: 'us-east-1',
+//       },
+//     },
+//   });
+// };
+
+// initializePineconeIndex().catch(console.error);
+export const pcIndex = pc.Index('bhizchat-rag');
+
+
 
 mongoose.set('strictQuery', false);
 
@@ -84,7 +116,7 @@ const shopify = shopifyApp({
   },
 });
 
-let shopifySession: any;
+let shopifySession: any
 
 // Handling Shopify OAuth initiation from Socket.IO
 io.on('connection', (socket) => {
@@ -160,7 +192,7 @@ io.on('connection', (socket) => {
 
         // Save the session to MongoDB
         await newSession.save();
-
+        shopifySession = newSession;
         console.log(
           'Session stored successfully'
         );
@@ -179,7 +211,116 @@ io.on('connection', (socket) => {
       }
     }
   );
+socket.on(
+  'fetchAndStoreAllProducts',
+  async () => {
+    console.log(
+      'Fetching all products from Shopify...'
+    );
 
+    try {
+      if (
+        !shopifySession ||
+        !shopifySession.shop
+      ) {
+        socket.emit(
+          'error',
+          'Shopify session is not available.'
+        );
+        return;
+      }
+
+      const shop = shopifySession.shop;
+      const accessToken =
+        shopifySession.accessToken;
+
+      // Fetch all products using the imported function
+      const allProducts: ShopifyProduct[] =
+        await fetchAllProducts(shop, accessToken);
+       for (const product of allProducts) {
+         console.log(`Product ID: ${product.id}`);
+         console.log(
+           `Product Title: ${product.title}`
+         );
+         console.log(
+           `Product Description: ${product.description}`
+         );
+         console.log(
+           '----------------------------------'
+         );
+       }
+
+
+      // Iterate over products and generate embeddings
+      for (const product of allProducts) {
+        const embeddingResponse =
+          await openai.embeddings.create({
+            input: product.description,
+            model: 'text-embedding-ada-002',
+          });
+
+        const embedding =
+          embeddingResponse.data[0].embedding;
+        console.log(
+          `Embedding for product: ${product.title}`,
+          embedding
+        );
+    
+
+        // Store the embedding in Pinecone
+  await pcIndex.upsert([
+    {
+      id: product.id,
+      values: embedding,
+      metadata: Object.fromEntries(
+        Object.entries(product)
+          .filter(
+            ([key, value]) =>
+              key !== 'Symbol.iterator' &&
+              value != null
+          )
+          .map(([key, value]) => [
+            key,
+            Array.isArray(value)
+              ? value.join(', ')
+              : String(value),
+          ])
+      ) as Record<string, string>,
+    },
+  ]);
+
+        console.log(
+          `Stored embedding for product: ${product.title}`
+        );
+      
+      }
+      // Emit success message to the client
+      socket.emit('productsStored', {
+        success: true,
+        message:
+          'All products have been successfully embedded and stored in Pinecone.',
+      });
+    } catch (error) {
+      console.error(
+        'Error fetching or storing products:',
+        error
+      );
+      socket.emit(
+        'error',
+        'Failed to fetch and store products.'
+      );
+    }
+  }
+);
+
+  socket.on('queryProducts', async (data) => {
+    const { userQuery } = data;
+    const gptResponse =
+      await queryAndGenerateResponse(userQuery);
+    socket.emit('queryResults', {
+      message: gptResponse,
+    });
+  });
   // Fetch collections via WebSocket
   socket.on('fetchCollections', async () => {
     console.log(
@@ -407,9 +548,9 @@ app.get(
         `Index.ts storing the session fetched from the callback ${session}`
       );
       // Redirect back to the client
-      res.redirect(
-        `/?shop=${session.shop}&host=${host}`
-      );
+      // res.redirect(
+      //   `/?shop=${session.shop}&host=${host}`
+      // );
     } catch (error) {
       console.error(
         'Error in the authentication callback:',

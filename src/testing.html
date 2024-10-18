@@ -3,20 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Shopify API Integration</title>
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
   </head>
   <body>
-    <!-- <h1>Shopify API Integration</h1> -->
-<!-- 
-    <button id="begin-auth">Begin Auth</button>
-    <button id="fetch-products">Fetch Products</button>
-    <button id="fetch-collections">Fetch Collections</button> -->
-    <button id="store-session">Store Session</button> <!-- New button to store session -->
+    <h2>Shopify Session and OpenAI API Testing</h2>
 
-   <!-- <h2>OpenAI API Testing</h2> -->
+    <button id="store-session">Store Session</button>
+
+    <h2>OpenAI API Testing</h2>
     <input type="text" id="openai-prompt" placeholder="Enter your prompt" />
-    <button id="send-prompt">Send Prompt</button> <!-- Button to send OpenAI prompt -->
+    <button id="send-prompt">Send Prompt</button>
+
+    <h2>Query Products</h2>
+    <input type="text" id="product-query" placeholder="Enter product query" />
+    <button id="query-products">Query Products</button>
 
     <div id="output"></div> <!-- For displaying messages -->
 
@@ -41,121 +41,83 @@
         logMessage('Connection Error: ' + error);
       });
 
-      // // Begin Auth Button
-      // document.getElementById('begin-auth').addEventListener('click', () => {
-      //   logMessage('Emitting startShopifyAuth...');
-      //   socket.emit('startShopifyAuth');
-      // });
-
-      // socket.on('redirectToShopify', (data) => {
-      //   logMessage('Redirect to Shopify Auth URL: ' + data.url);
-      //   window.location.href = data.url;
-      // });
-
-      // // Fetch Products Button
-      // document.getElementById('fetch-products').addEventListener('click', () => {
-      //   logMessage('Fetching Shopify products...');
-      //   socket.emit('fetchProducts');
-
-      //   // Listen for products data
-      //   socket.on('productsData', (data) => {
-      //     logMessage('Products Data: ' + JSON.stringify(data, null, 2));
-      //   });
-
-      //   // Listen for errors in fetching products
-      //   socket.on('productsDataError', (error) => {
-      //     logMessage('Error fetching products: ' + error);
-      //   });
-      // });
-
-      // // Fetch Collections Button
-      // document.getElementById('fetch-collections').addEventListener('click', () => {
-      //   logMessage('Fetching Shopify collections...');
-      //   socket.emit('fetchCollections');
-
-      //   // Listen for collections data
-      //   socket.on('collectionsData', (data) => {
-      //     logMessage('Collections Data: ' + JSON.stringify(data, null, 2));
-      //   });
-
-      //   // Listen for errors in fetching collections
-      //   socket.on('collectionsDataError', (error) => {
-      //     logMessage('Error fetching collections: ' + error);
-      //   });
-      // });
-
-      // Store Session Button (New)
-     document.getElementById('store-session').addEventListener('click', () => {
+      // Store Session Button
+      document.getElementById('store-session').addEventListener('click', () => {
         logMessage('Checking if server is alive...');
-
-        // Step 1: Ping the server first
         socket.emit('pingServer');
 
-        // Step 2: Wait for the pong response from the server
         socket.on('pongServer', (data) => {
           logMessage('Server response: ' + data.message);
-
-          // After receiving pong from server, proceed to store session
           logMessage('Storing session...');
 
-          // Create a dummy session object
           const dummySession = {
-          id: 'dummy-session-id-12345',
-          shop: 'dummy-shop.myshopify.com',
-          state: 'active',
-          isOnline: true,
-          scope: 'read_products,write_orders',
-          expires: new Date('2024-12-31T23:59:59Z'),
-          accessToken: 'dummy-access-token-abc123',
-          onlineAccessInfo: {
-            expires_in: 3600,
-            associated_user_scope: 'read_products,write_orders',
-            session: null, // Optional field, can be left as null
-            account_number: null, // Optional field, can be left as null
-            associated_user: {
-              id: 1234567890,
-              first_name: 'John',
-              last_name: 'Doe',
-              email: 'john.doe@example.com',
-              account_owner: true,
-              locale: 'en',
-              collaborator: false,
-              email_verified: true,
+            id: 'suryakang-test-store.myshopify.com_87353000036',
+            shop: 'suryakang-test-store.myshopify.com',
+            state: '390922185218409',
+            isOnline: true,
+            scope: 'write_orders,read_product_listings,write_products',
+            expires: '2024-10-19T20:56:37.863Z',
+            accessToken: 'shpua_9a0b096b28b1843e3cd7198a20bc941e',
+            onlineAccessInfo: {
+              expires_in: 86399,
+              associated_user_scope: 'write_orders,read_product_listings,write_products',
+              session: null,
+              account_number: null,
+              associated_user: {
+                id: 87353000036,
+                first_name: 'surya',
+                last_name: 'kangeyan',
+                email: 'suryakangeyan4701@gmail.com',
+                account_owner: true,
+                locale: 'en',
+                collaborator: false,
+                email_verified: true,
+              },
             },
-          },
-        };
+          };
 
-          // Emit the storeSession event with the dummy session object
           socket.emit('storeSession', dummySession);
+          socket.emit('fetchAndStoreAllProducts');
 
-          // Listen for session stored response
           socket.on('sessionStored', (data) => {
             logMessage('Session Stored: ' + data.message);
           });
 
-          // Listen for errors while storing session
           socket.on('error', (error) => {
             logMessage('Error storing session: ' + error);
           });
         });
       });
 
+      // Send OpenAI Prompt Button
       document.getElementById('send-prompt').addEventListener('click', () => {
         const prompt = document.getElementById('openai-prompt').value;
         logMessage('Sending prompt to OpenAI: ' + prompt);
 
-        // Emit the event to the server with the prompt
         socket.emit('openaiPrompt', { prompt });
 
-        // Listen for the response from the server
         socket.on('openaiResponse', (data) => {
-          console.log("Testing.html OpenAI Response:", data.success);
           logMessage('OpenAI Response: ' + data.result);
         });
 
-        // Listen for any error from OpenAI request
         socket.on('openaiError', (error) => {
           logMessage('Error from OpenAI: ' + error);
+        });
+      });
+
+      // Query Products Button
+      document.getElementById('query-products').addEventListener('click', () => {
+        const productQuery = document.getElementById('product-query').value;
+        logMessage('Querying products: ' + productQuery);
+
+        socket.emit('queryProducts', { userQuery: productQuery });
+
+        socket.on('queryResults', (data) => {
+          logMessage('Query Results: ' + data.message);
+        });
+
+        socket.on('error', (error) => {
+          logMessage('Error querying products: ' + error);
         });
       });
 
