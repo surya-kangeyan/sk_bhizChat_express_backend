@@ -3,7 +3,6 @@ import { Server } from 'socket.io';
 import { createServer } from 'http';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
-// import Session from './models/session';
 import Session from './models/session.js';
 import OpenAI from 'openai';
 import { ChatCompletionMessageParam } from 'openai/resources/chat';
@@ -20,7 +19,6 @@ if (!MONGODB_URI) {
 const app = express();
 const server = createServer(app);
 
-// Initialize Socket.IO
 const io = new Server(server, {
   transports: ['websocket'],
   cors: {
@@ -30,18 +28,15 @@ const io = new Server(server, {
   },
 });
 
-// Connect to MongoDB
 mongoose.set('strictQuery', false);
 mongoose.connect(MONGODB_URI)
   .then(() => console.log('Connected to MongoDB'))
   .catch((err) => console.error('Error connecting to MongoDB:', err));
 
-// Initialize OpenAI
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Socket.IO connection logic
 io.on('connection', (socket) => {
   console.log('A user connected: ', socket.id);
 
@@ -110,7 +105,6 @@ io.on('connection', (socket) => {
   });
 });
 
-// Test route
 app.get('/test', (req: Request, res: Response) => {
   res.json({
     message: 'Server is running correctly',
@@ -119,13 +113,11 @@ app.get('/test', (req: Request, res: Response) => {
   });
 });
 
-// Error handling middleware
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error('Unhandled error:', err);
   res.status(500).send('An unexpected error occurred');
 });
 
-// Start the server
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
