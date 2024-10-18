@@ -2,25 +2,25 @@
 
 ## Key Functionalities:
 ### Contextual Product Recommendation System:
-   Utilizes natural language processing to interpret user queries and generate relevant product suggestions. For instance, a query about weightlifting equipment triggers    recommendations for related fitness apparatus, nutritional supplements, and associated fitness regimens.
+-  Utilizes natural language processing to interpret user queries and generate relevant product suggestions. For instance, a query about weightlifting equipment triggers    recommendations for related fitness apparatus, nutritional supplements, and associated fitness regimens.
 ### Multi-modal Information Synthesis:
-   Aggregates data from various sources including product descriptions, user reviews, and inventory systems to provide comprehensive responses to user inquiries.
+  -  Aggregates data from various sources including product descriptions, user reviews, and inventory systems to provide comprehensive responses to user inquiries.
 ### Real-time Inventory and Logistics Integration:
-   Interfaces with Shopify's backend systems to provide up-to-date information on product availability and estimated delivery timeframes.
+  - Interfaces with Shopify's backend systems to provide up-to-date information on product availability and estimated delivery timeframes.
 ### Sentiment Analysis of User Reviews:
-   Employs natural language processing techniques to analyze and summarize user reviews, extracting key insights and prevalent opinions.
+ -  Employs natural language processing techniques to analyze and summarize user reviews, extracting key insights and prevalent opinions.
 ### Dynamic Product Comparison:
-   Implements a feature extraction and comparison algorithm to juxtapose multiple products based on user-specified criteria.
+  - Implements a feature extraction and comparison algorithm to juxtapose multiple products based on user-specified criteria.
 ### Predictive Trend Analysis:
-   Utilizes machine learning models to analyze historical data and predict upcoming trends in product categories.
+  - Utilizes machine learning models to analyze historical data and predict upcoming trends in product categories.
 ###  Multilingual Natural Language Understanding:
-   Incorporates multilingual models to process and respond to queries in various languages, enhancing global accessibility.
+  - Incorporates multilingual models to process and respond to queries in various languages, enhancing global accessibility.
 ### Voice-based User Interface:
-   Integrates speech recognition and text-to-speech technologies to enable voice-based interactions.
+  - Integrates speech recognition and text-to-speech technologies to enable voice-based interactions.
 ### The system leverages advanced machine learning techniques, including:
-   Embedding-based similarity search for product retrieval
-   Transformer-based language models for natural language understanding and generation
-   Vector databases for efficient similarity computations
+  - Embedding-based similarity search for product retrieval
+  - Transformer-based language models for natural language understanding and generation
+  - Vector databases for efficient similarity computations
 
 ## Table of Contents
 
