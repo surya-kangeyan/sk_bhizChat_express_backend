@@ -27,13 +27,16 @@ import { createProductWebhook } from './services/productMutations';
 
 dotenv.config();
 
-const SOCKET_PORT = parseInt(
-  process.env.SOCKET_PORT || '3000',
-  10
-);
+const PORT = process.env.PORT || 3000;
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  throw new Error('MONGODB_URI is not defined in the environment variables.');
+}
 
 const app = express();
 const server = createServer(app);
+
 
 const url = process.env.MONGODB_URI;
 export const openai = new OpenAI({
@@ -71,28 +74,21 @@ export const pcIndex = pc.Index('bhizchat-rag');
 mongoose.set('strictQuery', false);
 
 // Initialize Socket.IO
+
 const io = new Server(server, {
-  transports: ['websocket'],
+  transports: ['websocket', 'polling'],
   cors: {
     origin: '*',
-    // process.env.FRONTEND_URL ||
-    // 'http://localhost:3000',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
   },
 });
 
-mongoose
-  .connect(url)
-  .then(() => {
-    console.log(`Connected to MongoDB ${url}`);
-  })
-  .catch((err) => {
-    console.error(
-      'Error connecting to MongoDB:',
-      err
-    );
-  });
+mongoose.set('strictQuery', false);
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch((err) => console.error('Error connecting to MongoDB:', err));
+
 
 // Initialize Shopify app
 // const shopify = shopifyApp({
@@ -134,12 +130,9 @@ io.on('connection', (socket) => {
 
   socket.on('pingServer', () => {
     console.log('Ping received from client');
-    // Respond to the ping
-    socket.emit('pongServer', {
-      message: 'Server is alive',
-    });
+    socket.emit('pongServer', { message: 'Server is alive' });
   });
-  // Storing sessions using socket.io
+
   socket.on(
     'storeSession',
     async (sessionData) => {
@@ -148,7 +141,6 @@ io.on('connection', (socket) => {
           'Received session data:',
           sessionData
         );
-
         // Validate session data
         if (
           !sessionData ||
@@ -318,6 +310,7 @@ io.on('connection', (socket) => {
 
   socket.on('openaiPrompt', async (data) => {
     const { userQuery } = data;
+
     const gptResponse =
       await queryAndGenerateResponse(userQuery);
     socket.emit('openaiResponse', {
@@ -329,7 +322,7 @@ io.on('connection', (socket) => {
     console.log(
       'Received request to fetch collections'
     );
-    try {
+try {
       if (
         !shopifySession ||
         !shopifySession.shop
@@ -394,6 +387,7 @@ io.on('connection', (socket) => {
       );
     }
   });
+
 
   let conversationHistory: Array<{
     role: 'system' | 'user' | 'assistant';
@@ -481,6 +475,7 @@ io.on('connection', (socket) => {
   });
 });
 
+
 // // CORS Middleware
 // app.use(
 //   cors({
@@ -566,151 +561,143 @@ io.on('connection', (socket) => {
 // );
 
 // Express route to fetch collections (use if needed directly via HTTP)
-app.get(
-  '/api/collects',
-  async (req: Request, res: Response) => {
-    try {
-      if (
-        !shopifySession ||
-        !shopifySession.shop
-      ) {
-        return res
-          .status(400)
-          .send(
-            'Shopify session is not available.'
-          );
-      }
+// app.get(
+//   '/api/collects',
+//   async (req: Request, res: Response) => {
+//     try {
+//       if (
+//         !shopifySession ||
+//         !shopifySession.shop
+//       ) {
+//         return res
+//           .status(400)
+//           .send(
+//             'Shopify session is not available.'
+//           );
+//       }
 
-      const shop = shopifySession.shop;
-      const accessToken =
-        shopifySession.accessToken;
+//       const shop = shopifySession.shop;
+//       const accessToken =
+//         shopifySession.accessToken;
 
-      const graphqlQuery = `
-    {
-      collections(first: 10) {
-        edges {
-          node {
-            id
-            title
-            handle
-            updatedAt
-            products(first: 8) {
-              edges {
-                node {
-                  id
-                  title
-                  description
-                }
-              }
-            }
-          }
-        }
-      }
-    }`;
+//       const graphqlQuery = `
+//     {
+//       collections(first: 10) {
+//         edges {
+//           node {
+//             id
+//             title
+//             handle
+//             updatedAt
+//             products(first: 8) {
+//               edges {
+//                 node {
+//                   id
+//                   title
+//                   description
+//                 }
+//               }
+//             }
+//           }
+//         }
+//       }
+//     }`;
 
-      const graphqlResponse = await axios.post(
-        `https://${shop}/admin/api/2024-07/graphql.json`,
-        { query: graphqlQuery },
-        {
-          headers: {
-            'X-Shopify-Access-Token': accessToken,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+//       const graphqlResponse = await axios.post(
+//         `https://${shop}/admin/api/2024-07/graphql.json`,
+//         { query: graphqlQuery },
+//         {
+//           headers: {
+//             'X-Shopify-Access-Token': accessToken,
+//             'Content-Type': 'application/json',
+//           },
+//         }
+//       );
 
-      res.json(graphqlResponse.data);
-    } catch (error) {
-      console.error(
-        'Error fetching collections via GraphQL:',
-        error
-      );
-      res.status(500).json({
-        error:
-          'Failed to fetch collections via GraphQL',
-      });
-    }
-  }
-);
+//       res.json(graphqlResponse.data);
+//     } catch (error) {
+//       console.error(
+//         'Error fetching collections via GraphQL:',
+//         error
+//       );
+//       res.status(500).json({
+//         error:
+//           'Failed to fetch collections via GraphQL',
+//       });
+//     }
+//   }
+// );
 
-// Webhook handler for product creation
-app.post(
-  '/webhook/products/create',
-  async (req: Request, res: Response) => {
-    try {
-      const hmac = req.headers[
-        'x-shopify-hmac-sha256'
-      ] as string;
-      const secret =
-        process.env.SHOPIFY_API_SECRET || '';
-      const body = JSON.stringify(req.body);
+// // Webhook handler for product creation
+// app.post(
+//   '/webhook/products/create',
+//   async (req: Request, res: Response) => {
+//     try {
+//       const hmac = req.headers[
+//         'x-shopify-hmac-sha256'
+//       ] as string;
+//       const secret =
+//         process.env.SHOPIFY_API_SECRET || '';
+//       const body = JSON.stringify(req.body);
 
-      // Verify the HMAC signature
-      const generatedHmac = crypto
-        .createHmac('sha256', secret)
-        .update(body, 'utf8')
-        .digest('base64');
-      if (generatedHmac !== hmac) {
-        return res
-          .status(403)
-          .send('Webhook verification failed');
-      }
+//       // Verify the HMAC signature
+//       const generatedHmac = crypto
+//         .createHmac('sha256', secret)
+//         .update(body, 'utf8')
+//         .digest('base64');
+//       if (generatedHmac !== hmac) {
+//         return res
+//           .status(403)
+//           .send('Webhook verification failed');
+//       }
 
-      // Handle the webhook data
-      console.log(
-        'Webhook received for product creation:',
-        req.body
-      );
+//       // Handle the webhook data
+//       console.log(
+//         'Webhook received for product creation:',
+//         req.body
+//       );
 
-      // Respond to Shopify with a success status
-      res.status(200).send('Webhook received');
-    } catch (error) {
-      console.error(
-        'Error handling webhook:',
-        error
-      );
-      res
-        .status(500)
-        .send('Error handling webhook');
-    }
-  }
-);
+//       // Respond to Shopify with a success status
+//       res.status(200).send('Webhook received');
+//     } catch (error) {
+//       console.error(
+//         'Error handling webhook:',
+//         error
+//       );
+//       res
+//         .status(500)
+//         .send('Error handling webhook');
+//     }
+//   }
+// );
 
-// Catch-all route for the app
-app.get('*', (req: Request, res: Response) => {
-  const shop = req.query.shop;
-  if (shop) {
-    res
-      .status(200)
-      .send(`App is installed for shop: ${shop}`);
-  } else {
-    res
-      .status(400)
-      .send('Missing shop parameter');
-  }
+// // Catch-all route for the app
+// app.get('*', (req: Request, res: Response) => {
+//   const shop = req.query.shop;
+//   if (shop) {
+//     res
+//       .status(200)
+//       .send(`App is installed for shop: ${shop}`);
+//   } else {
+//     res
+//       .status(400)
+//       .send('Missing shop parameter');
+//   }
+// =======
+// app.get('/test', (req: Request, res: Response) => {
+//   res.json({
+//     message: 'Server is running correctly',
+//     timestamp: new Date().toISOString(),
+//     port: PORT
+//   });
+// >>>>>>> 830df817aff7724177103eb41482e2502aebe8b4
+// });
+
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  console.error('Unhandled error:', err);
+  res.status(500).send('An unexpected error occurred');
 });
 
-// Error handling middleware
-app.use(
-  (
-    err: any,
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
-    console.error('Unhandled error:', err);
-    res
-      .status(500)
-      .send('An unexpected error occurred');
-  }
-);
-
-// Start the server with Socket.IO and Express
-server.listen(SOCKET_PORT, () => {
-  console.log(
-    `Socket.IO server running on http://localhost:${SOCKET_PORT}`
-  );
-});
 
 
 
@@ -720,3 +707,8 @@ server.listen(SOCKET_PORT, () => {
 // todo :  check for structure of the open ai response
 // todo :  check for emotions of the respone  
 // todo :  check for latency of the response 
+
+server.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
+
