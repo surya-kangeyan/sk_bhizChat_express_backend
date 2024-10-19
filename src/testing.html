@@ -14,9 +14,9 @@
     <input type="text" id="openai-prompt" placeholder="Enter your prompt" />
     <button id="send-prompt">Send Prompt</button>
 
-    <h2>Query Products</h2>
+    <!-- <h2>Query Products</h2>
     <input type="text" id="product-query" placeholder="Enter product query" />
-    <button id="query-products">Query Products</button>
+    <button id="query-products">Query Products</button> -->
 
     <div id="output"></div> <!-- For displaying messages -->
 
@@ -97,7 +97,7 @@
         socket.emit('openaiPrompt', { prompt });
 
         socket.on('openaiResponse', (data) => {
-          logMessage('OpenAI Response: ' + data.result);
+          logMessage('OpenAI Response: ' + data.message);
         });
 
         socket.on('openaiError', (error) => {
@@ -110,7 +110,7 @@
         const productQuery = document.getElementById('product-query').value;
         logMessage('Querying products: ' + productQuery);
 
-        socket.emit('queryProducts', { userQuery: productQuery });
+        socket.emit('queryProducts', {productQuery });
 
         socket.on('queryResults', (data) => {
           logMessage('Query Results: ' + data.message);

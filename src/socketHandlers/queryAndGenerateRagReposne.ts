@@ -1,8 +1,8 @@
 
 
-import { pc, pcIndex } from '../index'; // Pinecone client import
+import { pc, pcIndex } from '../index.js'; // Pinecone client import
 
-import {openai} from '../index';
+import {openai} from '../index.js';
 // Function to query Pinecone and generate GPT response
 export async function queryAndGenerateResponse(
   userQuery: string

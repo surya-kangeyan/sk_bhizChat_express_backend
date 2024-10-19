@@ -1,8 +1,8 @@
 import { shopifyApp } from '@shopify/shopify-app-express';
-import {
-  fetchAllProducts,
-  ShopifyProduct,
-} from './requests/productFetchReq';
+// import {
+//   fetchAllProducts,
+//   ShopifyProduct,
+// } from './requests/productFetchReq';
 
 import { SQLiteSessionStorage } from '@shopify/shopify-app-session-storage-sqlite';
 import express, {
@@ -11,7 +11,7 @@ import express, {
   NextFunction,
 } from 'express';
 // import pinecone from 'pinecone-client';
-import { queryAndGenerateResponse } from './socketHanlders/queryAndGenerateRagReposne';
+import  {queryAndGenerateResponse}  from './socketHandlers/queryAndGenerateRagReposne.js';
 
 import { Pinecone } from '@pinecone-database/pinecone';
 import axios from 'axios';
@@ -20,10 +20,10 @@ import cors from 'cors';
 import { Server } from 'socket.io';
 import { createServer } from 'http';
 import mongoose from 'mongoose';
-import Session from './models/session';
+import Session from './models/session.js';
 import crypto from 'crypto';
 import OpenAI from 'openai';
-import { createProductWebhook } from './services/productMutations';
+// import { createProductWebhook } from './services/productMutations';
 
 dotenv.config();
 
@@ -203,116 +203,119 @@ io.on('connection', (socket) => {
       }
     }
   );
-  socket.on(
-    'fetchAndStoreAllProducts',
-    async () => {
-      console.log(
-        'Fetching all products from Shopify...'
-      );
+  // socket.on(
+  //   'fetchAndStoreAllProducts',
+  //   async () => {
+  //     console.log(
+  //       'Fetching all products from Shopify...'
+  //     );
 
-      try {
-        if (
-          !shopifySession ||
-          !shopifySession.shop
-        ) {
-          socket.emit(
-            'error',
-            'Shopify session is not available.'
-          );
-          return;
-        }
+  //     try {
+  //       if (
+  //         !shopifySession ||
+  //         !shopifySession.shop
+  //       ) {
+  //         socket.emit(
+  //           'error',
+  //           'Shopify session is not available.'
+  //         );
+  //         return;
+  //       }
 
-        const shop = shopifySession.shop;
-        const accessToken =
-          shopifySession.accessToken;
+  //       const shop = shopifySession.shop;
+  //       const accessToken =
+  //         shopifySession.accessToken;
 
-        // Fetch all products using the imported function
-        const allProducts: ShopifyProduct[] =
-          await fetchAllProducts(
-            shop,
-            accessToken
-          );
-        for (const product of allProducts) {
-          console.log(
-            `Product ID: ${product.id}`
-          );
-          console.log(
-            `Product Title: ${product.title}`
-          );
-          console.log(
-            `Product Description: ${product.description}`
-          );
-          console.log(
-            '----------------------------------'
-          );
-        }
+  //       // Fetch all products using the imported function
+  //       const allProducts: ShopifyProduct[] =
+  //         await fetchAllProducts(
+  //           shop,
+  //           accessToken
+  //         );
+  //       for (const product of allProducts) {
+  //         console.log(
+  //           `Product ID: ${product.id}`
+  //         );
+  //         console.log(
+  //           `Product Title: ${product.title}`
+  //         );
+  //         console.log(
+  //           `Product Description: ${product.description}`
+  //         );
+  //         console.log(
+  //           '----------------------------------'
+  //         );
+  //       }
 
-        // Iterate over products and generate embeddings
-        for (const product of allProducts) {
-          const embeddingResponse =
-            await openai.embeddings.create({
-              input: product.description,
-              model: 'text-embedding-ada-002',
-            });
+  //       // Iterate over products and generate embeddings
+  //       for (const product of allProducts) {
+  //         const embeddingResponse =
+  //           await openai.embeddings.create({
+  //             input: product.description,
+  //             model: 'text-embedding-ada-002',
+  //           });
 
-          const embedding =
-            embeddingResponse.data[0].embedding;
-          console.log(
-            `Embedding for product: ${product.title}`,
-            embedding
-          );
+  //         const embedding =
+  //           embeddingResponse.data[0].embedding;
+  //         console.log(
+  //           `Embedding for product: ${product.title}`,
+  //           embedding
+  //         );
 
-          // Store the embedding in Pinecone
-          await pcIndex.upsert([
-            {
-              id: product.id,
-              values: embedding,
-              metadata: Object.fromEntries(
-                Object.entries(product)
-                  .filter(
-                    ([key, value]) =>
-                      key !== 'Symbol.iterator' &&
-                      value != null
-                  )
-                  .map(([key, value]) => [
-                    key,
-                    Array.isArray(value)
-                      ? value.join(', ')
-                      : String(value),
-                  ])
-              ) as Record<string, string>,
-            },
-          ]);
+  //         // Store the embedding in Pinecone
+  //         await pcIndex.upsert([
+  //           {
+  //             id: product.id,
+  //             values: embedding,
+  //             metadata: Object.fromEntries(
+  //               Object.entries(product)
+  //                 .filter(
+  //                   ([key, value]) =>
+  //                     key !== 'Symbol.iterator' &&
+  //                     value != null
+  //                 )
+  //                 .map(([key, value]) => [
+  //                   key,
+  //                   Array.isArray(value)
+  //                     ? value.join(', ')
+  //                     : String(value),
+  //                 ])
+  //             ) as Record<string, string>,
+  //           },
+  //         ]);
 
-          console.log(
-            `Stored embedding for product: ${product.title}`
-          );
-        }
-        // Emit success message to the client
-        socket.emit('productsStored', {
-          success: true,
-          message:
-            'All products have been successfully embedded and stored in Pinecone.',
-        });
-      } catch (error) {
-        console.error(
-          'Error fetching or storing products:',
-          error
-        );
-        socket.emit(
-          'error',
-          'Failed to fetch and store products.'
-        );
-      }
-    }
-  );
+  //         console.log(
+  //           `Stored embedding for product: ${product.title}`
+  //         );
+  //       }
+  //       // Emit success message to the client
+  //       socket.emit('productsStored', {
+  //         success: true,
+  //         message:
+  //           'All products have been successfully embedded and stored in Pinecone.',
+  //       });
+  //     } catch (error) {
+  //       console.error(
+  //         'Error fetching or storing products:',
+  //         error
+  //       );
+  //       socket.emit(
+  //         'error',
+  //         'Failed to fetch and store products.'
+  //       );
+  //     }
+  //   }
+  // );
   // Communication route for OpenAI API + RAG impl
 
   socket.on('openaiPrompt', async (data) => {
-    const { userQuery } = data;
+    const { prompt } = data;
+    console.log(
+      `Received prompt from client ${prompt}`
+    );
 
     const gptResponse =
-      await queryAndGenerateResponse(userQuery);
+      await queryAndGenerateResponse(prompt);
     socket.emit('openaiResponse', {
       message: gptResponse,
     });
