@@ -707,3 +707,12 @@ server.listen(SOCKET_PORT, () => {
     `Socket.IO server running on http://localhost:${SOCKET_PORT}`
   );
 });
+
+
+
+
+
+// todo :  check for images in the rag response 
+// todo :  check for structure of the open ai response
+// todo :  check for emotions of the respone  
+// todo :  check for latency of the response 
