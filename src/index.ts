@@ -317,6 +317,7 @@ io.on('connection', (socket) => {
     const gptResponse =
       await queryAndGenerateResponse(prompt);
     socket.emit('openaiResponse', {
+      success: true,
       result: gptResponse,
     });
   });
