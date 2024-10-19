@@ -695,7 +695,16 @@ try {
 //   });
 // >>>>>>> 830df817aff7724177103eb41482e2502aebe8b4
 // });
-
+app.get(
+  '/test',
+  (req: Request, res: Response) => {
+    res.json({
+      message: 'Server is running correctly',
+      timestamp: new Date().toISOString(),
+      port: PORT,
+    });
+  }
+);
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error('Unhandled error:', err);
   res.status(500).send('An unexpected error occurred');
