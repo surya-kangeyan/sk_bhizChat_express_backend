@@ -317,7 +317,7 @@ io.on('connection', (socket) => {
     const gptResponse =
       await queryAndGenerateResponse(prompt);
     socket.emit('openaiResponse', {
-      message: gptResponse,
+      result: gptResponse,
     });
   });
   // Fetch collections via WebSocket
