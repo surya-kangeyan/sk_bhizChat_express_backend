@@ -29,6 +29,7 @@ function getProductImageUrl(
 export async function queryAndGenerateResponse(
   userQuery: string
 ) {
+  console.log(`QueryAndGenerateResponse Received user query: ${userQuery}`);``
   try {
     // Step 1: Generate embedding for the user query
     const queryEmbeddingResponse =
