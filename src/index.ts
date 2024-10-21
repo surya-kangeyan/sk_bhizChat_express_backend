@@ -1,8 +1,8 @@
 import { shopifyApp } from '@shopify/shopify-app-express';
-import {
-  fetchAllProducts,
-  ShopifyProduct,
-} from './requests/productFetchReq';
+// import {
+//   fetchAllProducts,
+//   ShopifyProduct,
+// } from './requests/productFetchReq';
 
 import { SQLiteSessionStorage } from '@shopify/shopify-app-session-storage-sqlite';
 import express, {
@@ -11,7 +11,7 @@ import express, {
   NextFunction,
 } from 'express';
 // import pinecone from 'pinecone-client';
-import { queryAndGenerateResponse } from './socketHanlders/queryAndGenerateRagReposne';
+import  {queryAndGenerateResponse}  from './socketHandlers/queryAndGenerateRagReposne.js';
 
 import { Pinecone } from '@pinecone-database/pinecone';
 import axios from 'axios';
@@ -20,20 +20,25 @@ import cors from 'cors';
 import { Server } from 'socket.io';
 import { createServer } from 'http';
 import mongoose from 'mongoose';
-import Session from './models/session';
+import Session from './models/session.js';
 import crypto from 'crypto';
 import OpenAI from 'openai';
-import { createProductWebhook } from './services/productMutations';
+// import { createProductWebhook } from './services/productMutations';
 
 dotenv.config();
 
-const PORT = parseInt(
-  process.env.PORT || '3000',
-  10
-);
+
+const PORT = process.env.PORT || 3000;
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  throw new Error('MONGODB_URI is not defined in the environment variables.');
+}
+
 
 const app = express();
 const server = createServer(app);
+
 
 const url = process.env.MONGODB_URI;
 export const openai = new OpenAI({
@@ -71,50 +76,45 @@ export const pcIndex = pc.Index('bhizchat-rag');
 mongoose.set('strictQuery', false);
 
 // Initialize Socket.IO
+
 const io = new Server(server, {
-  transports: ['websocket'],
+  transports: ['websocket', 'polling'],
   cors: {
     origin: '*',
-    // process.env.FRONTEND_URL ||
-    // 'http://localhost:3000',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
   },
 });
 
-mongoose
-  .connect(url)
-  .then(() => {
-    console.log(`Connected to MongoDB ${url}`);
-  })
-  .catch((err) => {
-    console.error(
-      'Error connecting to MongoDB:',
-      err
-    );
-  });
+mongoose.set('strictQuery', false);
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch((err) => console.error('Error connecting to MongoDB:', err));
+
 
 // Initialize Shopify app
-const shopify = shopifyApp({
-  useOnlineTokens: true,
-  api: {
-    apiKey: process.env.SHOPIFY_API_KEY || '',
-    apiSecretKey:
-      process.env.SHOPIFY_API_SECRET || '',
-    scopes: process.env.SHOPIFY_SCOPES
-      ? process.env.SHOPIFY_SCOPES.split(',')
-      : [],
-    hostScheme: 'http',
-    hostName: `localhost:${PORT}`,
-  },
-  auth: {
-    path: '/api/auth',
-    callbackPath: '/api/auth/callback',
-  },
-  webhooks: {
-    path: '/api/webhooks',
-  },
-});
+
+// const shopify = shopifyApp({
+//   useOnlineTokens: true,
+//   api: {
+//     apiKey: process.env.SHOPIFY_API_KEY || '',
+//     apiSecretKey:
+//       process.env.SHOPIFY_API_SECRET || '',
+//     scopes: process.env.SHOPIFY_SCOPES
+//       ? process.env.SHOPIFY_SCOPES.split(',')
+//       : [],
+//     hostScheme: 'http',
+//     hostName: `localhost:${SOCKET_PORT}`,
+//   },
+//   auth: {
+//     path: '/api/auth',
+//     callbackPath: '/api/auth/callback',
+//   },
+//   webhooks: {
+//     path: '/api/webhooks',
+//   },
+// });
+
 
 let shopifySession: any
 
@@ -123,23 +123,20 @@ io.on('connection', (socket) => {
   console.log('A user connected: ', socket.id);
 
   // Listen for event to start Shopify OAuth
-  socket.on('startShopifyAuth', () => {
-    console.log('Starting Shopify OAuth process');
+  // socket.on('startShopifyAuth', () => {
+  //   console.log('Starting Shopify OAuth process');
 
-    // Emit an event to the client with the Shopify auth URL
-    socket.emit('redirectToShopify', {
-      url: `http://localhost:3000${shopify.config.auth.path}?shop=${process.env.SHOP_NAME}`, // This will be '/api/auth'
-    });
-  });
+  //   // Emit an event to the client with the Shopify auth URL
+  //   socket.emit('redirectToShopify', {
+  //     url: `http://localhost:3000${shopify.config.auth.path}?shop=${process.env.SHOP_NAME}`, // This will be '/api/auth'
+  //   });
+  // });
 
   socket.on('pingServer', () => {
     console.log('Ping received from client');
-    // Respond to the ping
-    socket.emit('pongServer', {
-      message: 'Server is alive',
-    });
+    socket.emit('pongServer', { message: 'Server is alive' });
   });
-  // Storing sessions using socket.io
+
   socket.on(
     'storeSession',
     async (sessionData) => {
@@ -148,7 +145,6 @@ io.on('connection', (socket) => {
           'Received session data:',
           sessionData
         );
-
         // Validate session data
         if (
           !sessionData ||
@@ -211,6 +207,7 @@ io.on('connection', (socket) => {
       }
     }
   );
+
 // socket.on(
 //   'fetchAndStoreAllProducts',
 //   async () => {
@@ -330,7 +327,7 @@ io.on('connection', (socket) => {
     console.log(
       'Received request to fetch collections'
     );
-    try {
+try {
       if (
         !shopifySession ||
         !shopifySession.shop
@@ -396,13 +393,15 @@ io.on('connection', (socket) => {
     }
   });
 
+
   let conversationHistory: Array<{
     role: 'system' | 'user' | 'assistant';
     content: string;
   }> = [
     {
       role: 'system',
-      content: process.env.OPENAI_AGENT_PROMPT || '',
+      content:
+        process.env.OPENAI_AGENT_PROMPT || '',
     },
   ];
 
@@ -481,6 +480,7 @@ io.on('connection', (socket) => {
   });
 });
 
+
 // // CORS Middleware
 // app.use(
 //   cors({
@@ -497,6 +497,7 @@ io.on('connection', (socket) => {
 //   shopify.config.auth.path,
 //   shopify.auth.begin()
 // );
+
 
 // app.get(
 //   shopify.config.auth.callbackPath,
@@ -705,6 +706,7 @@ io.on('connection', (socket) => {
 //   }
 // );
 
+
 app.get(
   '/test',
   (req: Request, res: Response) => {
@@ -715,6 +717,7 @@ app.get(
     });
   }
 );
+
 app.use(
   (
     err: any,
@@ -734,4 +737,6 @@ server.listen(PORT, () => {
   console.log(
     `Socket.IO server running on http://localhost:${PORT}`
   );
+
 });
+
