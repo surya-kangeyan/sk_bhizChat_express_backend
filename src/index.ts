@@ -314,6 +314,7 @@ io.on('connection', (socket) => {
 // );
 
   socket.on('openaiPrompt', async (data) => {
+    console.log(`Received prompt from client: ${data.prompt}`);
     const { userQuery } = data;
     const gptResponse =
       await queryAndGenerateResponse(userQuery);
