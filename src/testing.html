@@ -46,37 +46,38 @@
         logMessage('Checking if server is alive...');
         socket.emit('pingServer');
 
-        socket.on('pongServer', (data) => {
+        socket.on('pongServer', async(data) => {
           logMessage('Server response: ' + data.message);
           logMessage('Storing session...');
 
           const dummySession = {
-            id: 'suryakang-test-store.myshopify.com_87353000036',
-            shop: 'suryakang-test-store.myshopify.com',
-            state: '390922185218409',
-            isOnline: true,
+                              id: 'sk-test-store1.myshopify.com_75885969541',
+  shop: 'sk-test-store1.myshopify.com',
+  state: '777193965116795',
+  isOnline: true,
             scope: 'write_orders,read_product_listings,write_products',
-            expires: '2024-10-19T20:56:37.863Z',
-            accessToken: 'shpua_9a0b096b28b1843e3cd7198a20bc941e',
+            expires: '2024-10-21T22:47:01.212Z',
+            accessToken: 'shpua_63301c1555ae1aa158b277abeefc6d0e',
             onlineAccessInfo: {
-              expires_in: 86399,
-              associated_user_scope: 'write_orders,read_product_listings,write_products',
-              session: null,
-              account_number: null,
-              associated_user: {
-                id: 87353000036,
-                first_name: 'surya',
-                last_name: 'kangeyan',
-                email: 'suryakangeyan4701@gmail.com',
-                account_owner: true,
-                locale: 'en',
-                collaborator: false,
-                email_verified: true,
+    expires_in: 86398,
+    associated_user_scope: 'write_orders,read_product_listings,write_products',
+    session: null,
+    account_number: null,
+    associated_user: {
+      id: 75885969541,
+      first_name: 'surya',
+      last_name: 'kangeyan',
+      email: 'suryakangeyan4701@gmail.com',
+      account_owner: true,
+      locale: 'en',
+      collaborator: false,
+      email_verified: true
               },
             },
           };
 
           socket.emit('storeSession', dummySession);
+          await new Promise(resolve => setTimeout(resolve, 1000));
           socket.emit('fetchAndStoreAllProducts');
 
           socket.on('sessionStored', (data) => {

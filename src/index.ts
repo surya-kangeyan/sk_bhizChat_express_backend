@@ -245,6 +245,9 @@ socket.on(
          console.log(
            `Product Description: ${product.description}`
          );
+          console.log(
+            `Product Image URL: ${product.images}`
+          );
          console.log(
            '----------------------------------'
          );
@@ -318,7 +321,8 @@ socket.on(
     const gptResponse =
       await queryAndGenerateResponse(userQuery);
     socket.emit('queryResults', {
-      message: gptResponse,
+      success: true,
+      result: gptResponse,
     });
   });
   // Fetch collections via WebSocket
