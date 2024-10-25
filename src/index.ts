@@ -1,8 +1,8 @@
 import { shopifyApp } from '@shopify/shopify-app-express';
-// import {
-//   fetchAllProducts,
-//   ShopifyProduct,
-// } from './requests/productFetchReq';
+import {
+  fetchAllProducts,
+  ShopifyProduct,
+} from './requests/productFetchReq';
 
 import { SQLiteSessionStorage } from '@shopify/shopify-app-session-storage-sqlite';
 import express, {
@@ -10,7 +10,7 @@ import express, {
   Response,
   NextFunction,
 } from 'express';
-// import pinecone from 'pinecone-client';
+import pinecone from 'pinecone-client';
 import  {queryAndGenerateResponse}  from './socketHandlers/queryAndGenerateRagReposne.js';
 
 import { Pinecone } from '@pinecone-database/pinecone';
@@ -53,22 +53,22 @@ export const pc = new Pinecone({
   apiKey: process.env.PINECONE_API_KEY || '',
 });
 
-// // Update the index initialization:
-// const initializePineconeIndex = async () => {
-//   await pc.createIndex({
-//     name: 'bhizchat-rag',
-//     dimension: 1536,
-//     metric: 'cosine',
-//     spec: {
-//       serverless: {
-//         cloud: 'aws',
-//         region: 'us-east-1',
-//       },
-//     },
-//   });
-// };
+// Update the index initialization:
+const initializePineconeIndex = async () => {
+  await pc.createIndex({
+    name: 'bhizchat-rag',
+    dimension: 1536,
+    metric: 'cosine',
+    spec: {
+      serverless: {
+        cloud: 'aws',
+        region: 'us-east-1',
+      },
+    },
+  });
+};
 
-// initializePineconeIndex().catch(console.error);
+initializePineconeIndex().catch(console.error);
 export const pcIndex = pc.Index('bhizchat-rag');
 
 
@@ -94,26 +94,26 @@ mongoose.connect(MONGODB_URI)
 
 // Initialize Shopify app
 
-// const shopify = shopifyApp({
-//   useOnlineTokens: true,
-//   api: {
-//     apiKey: process.env.SHOPIFY_API_KEY || '',
-//     apiSecretKey:
-//       process.env.SHOPIFY_API_SECRET || '',
-//     scopes: process.env.SHOPIFY_SCOPES
-//       ? process.env.SHOPIFY_SCOPES.split(',')
-//       : [],
-//     hostScheme: 'http',
-//     hostName: `localhost:${SOCKET_PORT}`,
-//   },
-//   auth: {
-//     path: '/api/auth',
-//     callbackPath: '/api/auth/callback',
-//   },
-//   webhooks: {
-//     path: '/api/webhooks',
-//   },
-// });
+const shopify = shopifyApp({
+  useOnlineTokens: true,
+  api: {
+    apiKey: process.env.SHOPIFY_API_KEY || '',
+    apiSecretKey:
+      process.env.SHOPIFY_API_SECRET || '',
+    scopes: process.env.SHOPIFY_SCOPES
+      ? process.env.SHOPIFY_SCOPES.split(',')
+      : [],
+    hostScheme: 'http',
+    hostName: `localhost:${PORT}`,
+  },
+  auth: {
+    path: '/api/auth',
+    callbackPath: '/api/auth/callback',
+  },
+  webhooks: {
+    path: '/api/webhooks',
+  },
+});
 
 
 let shopifySession: any
@@ -123,14 +123,14 @@ io.on('connection', (socket) => {
   console.log('A user connected: ', socket.id);
 
   // Listen for event to start Shopify OAuth
-  // socket.on('startShopifyAuth', () => {
-  //   console.log('Starting Shopify OAuth process');
+  socket.on('startShopifyAuth', () => {
+    console.log('Starting Shopify OAuth process');
 
-  //   // Emit an event to the client with the Shopify auth URL
-  //   socket.emit('redirectToShopify', {
-  //     url: `http://localhost:3000${shopify.config.auth.path}?shop=${process.env.SHOP_NAME}`, // This will be '/api/auth'
-  //   });
-  // });
+    // Emit an event to the client with the Shopify auth URL
+    socket.emit('redirectToShopify', {
+      url: `http://localhost:3000${shopify.config.auth.path}?shop=${process.env.SHOP_NAME}`, // This will be '/api/auth'
+    });
+  });
 
   socket.on('pingServer', () => {
     console.log('Ping received from client');
@@ -208,110 +208,110 @@ io.on('connection', (socket) => {
     }
   );
 
-// socket.on(
-//   'fetchAndStoreAllProducts',
-//   async () => {
-//     console.log(
-//       'Fetching all products from Shopify...'
-//     );
+socket.on(
+  'fetchAndStoreAllProducts',
+  async () => {
+    console.log(
+      'Fetching all products from Shopify...'
+    );
 
-//     try {
-//       if (
-//         !shopifySession ||
-//         !shopifySession.shop
-//       ) {
-//         socket.emit(
-//           'error',
-//           'Shopify session is not available.'
-//         );
-//         return;
-//       }
+    try {
+      if (
+        !shopifySession ||
+        !shopifySession.shop
+      ) {
+        socket.emit(
+          'error',
+          'Shopify session is not available.'
+        );
+        return;
+      }
 
-//       const shop = shopifySession.shop;
-//       const accessToken =
-//         shopifySession.accessToken;
+      const shop = shopifySession.shop;
+      const accessToken =
+        shopifySession.accessToken;
 
-//       // Fetch all products using the imported function
-//       const allProducts: ShopifyProduct[] =
-//         await fetchAllProducts(shop, accessToken);
-//        for (const product of allProducts) {
-//          console.log(`Product ID: ${product.id}`);
-//          console.log(
-//            `Product Title: ${product.title}`
-//          );
-//          console.log(
-//            `Product Description: ${product.description}`
-//          );
-//           console.log(
-//             `Product Image URL: ${product.images}`
-//           );
-//          console.log(
-//            '----------------------------------'
-//          );
-//        }
+      // Fetch all products using the imported function
+      const allProducts: ShopifyProduct[] =
+        await fetchAllProducts(shop, accessToken);
+       for (const product of allProducts) {
+         console.log(`Product ID: ${product.id}`);
+         console.log(
+           `Product Title: ${product.title}`
+         );
+         console.log(
+           `Product Description: ${product.description}`
+         );
+          console.log(
+            `Product Image URL: ${product.images}`
+          );
+         console.log(
+           '----------------------------------'
+         );
+       }
 
 
-//       // Iterate over products and generate embeddings
-//       for (const product of allProducts) {
-//         const embeddingResponse =
-//           await openai.embeddings.create({
-//             input: product.description,
-//             model: 'text-embedding-ada-002',
-//           });
+      // Iterate over products and generate embeddings
+      for (const product of allProducts) {
+        const embeddingResponse =
+          await openai.embeddings.create({
+            input: product.description,
+            model: 'text-embedding-ada-002',
+          });
 
-//         const embedding =
-//           embeddingResponse.data[0].embedding;
-//         console.log(
-//           `Embedding for product: ${product.title}`,
-//           embedding
-//         );
+        const embedding =
+          embeddingResponse.data[0].embedding;
+        console.log(
+          `Embedding for product: ${product.title}`,
+          embedding
+        );
     
 
-//         // Store the embedding in Pinecone
-//   await pcIndex.upsert([
-//     {
-//       id: product.id,
-//       values: embedding,
-//       metadata: Object.fromEntries(
-//         Object.entries(product)
-//           .filter(
-//             ([key, value]) =>
-//               key !== 'Symbol.iterator' &&
-//               value != null
-//           )
-//           .map(([key, value]) => [
-//             key,
-//             Array.isArray(value)
-//               ? value.join(', ')
-//               : String(value),
-//           ])
-//       ) as Record<string, string>,
-//     },
-//   ]);
+        // Store the embedding in Pinecone
+  await pcIndex.upsert([
+    {
+      id: product.id,
+      values: embedding,
+      metadata: Object.fromEntries(
+        Object.entries(product)
+          .filter(
+            ([key, value]) =>
+              key !== 'Symbol.iterator' &&
+              value != null
+          )
+          .map(([key, value]) => [
+            key,
+            Array.isArray(value)
+              ? value.join(', ')
+              : String(value),
+          ])
+      ) as Record<string, string>,
+    },
+  ]);
 
-//         console.log(
-//           `Stored embedding for product: ${product.title}`
-//         );
+        console.log(
+          `Stored embedding for product: ${product.title}`
+        );
       
-//       }
-//       // Emit success message to the client
-//       socket.emit('productsStored', {
-//         success: true,
-//         message:
-//           'All products have been successfully embedded and stored in Pinecone.',
-//       });
-//     } catch (error) {
-//       console.error(
-//         'Error fetching or storing products:',
-//         error
-//       );
-//       socket.emit(
-//         'error',
-//         'Failed to fetch and store products.'
-//       );
-//     }
-//   }
-// );
+      }
+      // Emit success message to the client
+      socket.emit('productsStored', {
+        success: true,
+        message:
+          'All products have been successfully embedded and stored in Pinecone.',
+      });
+    } catch (error) {
+      console.error(
+        'Error fetching or storing products:',
+        error
+      );
+      socket.emit(
+        'error',
+        'Failed to fetch and store products.'
+      );
+    }
+  }
+);
 
   socket.on('openaiPrompt', async (data) => {
     console.log(`Received prompt from client: ${data.prompt}`);
@@ -426,218 +426,218 @@ app.use(
 );
 
 // Shopify OAuth routes
-// app.get(
-//   shopify.config.auth.path,
-//   shopify.auth.begin()
-// );
+app.get(
+  shopify.config.auth.path,
+  shopify.auth.begin()
+);
 
 
-// app.get(
-//   shopify.config.auth.callbackPath,
-//   shopify.auth.callback(),
-//   async (
-//     req: Request,
-//     res: Response,
-//     next: NextFunction
-//   ) => {
-//     try {
-//       const session = res.locals.shopify.session;
-//       console.log(
-//         'Authenticated session:',
-//         session
-//       );
+app.get(
+  shopify.config.auth.callbackPath,
+  shopify.auth.callback(),
+  async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const session = res.locals.shopify.session;
+      console.log(
+        'Authenticated session:',
+        session
+      );
 
-//       // await createProductWebhook(session);
-//       console.log(
-//         'Product webhook created and registered'
-//       );
-//       const existingSession =
-//         await Session.findOne({ id: session.id });
+      // await createProductWebhook(session);
+      console.log(
+        'Product webhook created and registered'
+      );
+      const existingSession =
+        await Session.findOne({ id: session.id });
 
-//       if (existingSession) {
-//         await Session.deleteOne({
-//           id: session.id,
-//         });
-//         console.log(
-//           'Existing session deleted from MongoDB'
-//         );
-//       }
-//       shopifySession = session; // Save the session globally for use in Socket.IO requests
+      if (existingSession) {
+        await Session.deleteOne({
+          id: session.id,
+        });
+        console.log(
+          'Existing session deleted from MongoDB'
+        );
+      }
+      shopifySession = session; // Save the session globally for use in Socket.IO requests
 
-//       const host = req.query.host as string;
+      const host = req.query.host as string;
 
-//       // Store the session
+      // Store the session
 
-//       const sessionData = new Session({
-//         id: session.id,
-//         shop: session.shop,
-//         state: session.state,
-//         isOnline: session.isOnline,
-//         scope: session.scope,
-//         expires: session.expires,
-//         accessToken: session.accessToken,
-//         onlineAccessInfo:
-//           session.onlineAccessInfo,
-//       });
+      const sessionData = new Session({
+        id: session.id,
+        shop: session.shop,
+        state: session.state,
+        isOnline: session.isOnline,
+        scope: session.scope,
+        expires: session.expires,
+        accessToken: session.accessToken,
+        onlineAccessInfo:
+          session.onlineAccessInfo,
+      });
 
-//       await sessionData.save();
-//       console.log('Session stored successfully');
-//       console.log(
-//         `Index.ts storing the session fetched from the callback ${session}`
-//       );
-//       // Redirect back to the client
-//       // res.redirect(
-//       //   `/?shop=${session.shop}&host=${host}`
-//       // );
-//     } catch (error) {
-//       console.error(
-//         'Error in the authentication callback:',
-//         error
-//       );
-//       next(error);
-//     }
-//   }
-// );
+      await sessionData.save();
+      console.log('Session stored successfully');
+      console.log(
+        `Index.ts storing the session fetched from the callback ${session}`
+      );
+      // Redirect back to the client
+      // res.redirect(
+      //   `/?shop=${session.shop}&host=${host}`
+      // );
+    } catch (error) {
+      console.error(
+        'Error in the authentication callback:',
+        error
+      );
+      next(error);
+    }
+  }
+);
 
 // // Express route to fetch collections (use if needed directly via HTTP)
-// app.get(
-//   '/api/collects',
-//   async (req: Request, res: Response) => {
-//     try {
-//       if (
-//         !shopifySession ||
-//         !shopifySession.shop
-//       ) {
-//         return res
-//           .status(400)
-//           .send(
-//             'Shopify session is not available.'
-//           );
-//       }
+app.get(
+  '/api/collects',
+  async (req: Request, res: Response) => {
+    try {
+      if (
+        !shopifySession ||
+        !shopifySession.shop
+      ) {
+        return res
+          .status(400)
+          .send(
+            'Shopify session is not available.'
+          );
+      }
 
-//       const shop = shopifySession.shop;
-//       const accessToken =
-//         shopifySession.accessToken;
+      const shop = shopifySession.shop;
+      const accessToken =
+        shopifySession.accessToken;
 
-//       const graphqlQuery = `
-//     {
-//       collections(first: 10) {
-//         edges {
-//           node {
-//             id
-//             title
-//             handle
-//             updatedAt
-//             products(first: 8) {
-//               edges {
-//                 node {
-//                   id
-//                   title
-//                   description
-//                 }
-//               }
-//             }
-//           }
-//         }
-//       }
-//     }`;
+      const graphqlQuery = `
+    {
+      collections(first: 10) {
+        edges {
+          node {
+            id
+            title
+            handle
+            updatedAt
+            products(first: 8) {
+              edges {
+                node {
+                  id
+                  title
+                  description
+                }
+              }
+            }
+          }
+        }
+      }
+    }`;
 
-//       const graphqlResponse = await axios.post(
-//         `https://${shop}/admin/api/2024-07/graphql.json`,
-//         { query: graphqlQuery },
-//         {
-//           headers: {
-//             'X-Shopify-Access-Token': accessToken,
-//             'Content-Type': 'application/json',
-//           },
-//         }
-//       );
+      const graphqlResponse = await axios.post(
+        `https://${shop}/admin/api/2024-07/graphql.json`,
+        { query: graphqlQuery },
+        {
+          headers: {
+            'X-Shopify-Access-Token': accessToken,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
-//       res.json(graphqlResponse.data);
-//     } catch (error) {
-//       console.error(
-//         'Error fetching collections via GraphQL:',
-//         error
-//       );
-//       res.status(500).json({
-//         error:
-//           'Failed to fetch collections via GraphQL',
-//       });
-//     }
-//   }
-// );
+      res.json(graphqlResponse.data);
+    } catch (error) {
+      console.error(
+        'Error fetching collections via GraphQL:',
+        error
+      );
+      res.status(500).json({
+        error:
+          'Failed to fetch collections via GraphQL',
+      });
+    }
+  }
+);
 
 // // Webhook handler for product creation
-// app.post(
-//   '/webhook/products/create',
-//   async (req: Request, res: Response) => {
-//     try {
-//       const hmac = req.headers[
-//         'x-shopify-hmac-sha256'
-//       ] as string;
-//       const secret =
-//         process.env.SHOPIFY_API_SECRET || '';
-//       const body = JSON.stringify(req.body);
+app.post(
+  '/webhook/products/create',
+  async (req: Request, res: Response) => {
+    try {
+      const hmac = req.headers[
+        'x-shopify-hmac-sha256'
+      ] as string;
+      const secret =
+        process.env.SHOPIFY_API_SECRET || '';
+      const body = JSON.stringify(req.body);
 
-//       // Verify the HMAC signature
-//       const generatedHmac = crypto
-//         .createHmac('sha256', secret)
-//         .update(body, 'utf8')
-//         .digest('base64');
-//       if (generatedHmac !== hmac) {
-//         return res
-//           .status(403)
-//           .send('Webhook verification failed');
-//       }
+      // Verify the HMAC signature
+      const generatedHmac = crypto
+        .createHmac('sha256', secret)
+        .update(body, 'utf8')
+        .digest('base64');
+      if (generatedHmac !== hmac) {
+        return res
+          .status(403)
+          .send('Webhook verification failed');
+      }
 
-//       // Handle the webhook data
-//       console.log(
-//         'Webhook received for product creation:',
-//         req.body
-//       );
+      // Handle the webhook data
+      console.log(
+        'Webhook received for product creation:',
+        req.body
+      );
 
-//       // Respond to Shopify with a success status
-//       res.status(200).send('Webhook received');
-//     } catch (error) {
-//       console.error(
-//         'Error handling webhook:',
-//         error
-//       );
-//       res
-//         .status(500)
-//         .send('Error handling webhook');
-//     }
-//   }
-// );
+      // Respond to Shopify with a success status
+      res.status(200).send('Webhook received');
+    } catch (error) {
+      console.error(
+        'Error handling webhook:',
+        error
+      );
+      res
+        .status(500)
+        .send('Error handling webhook');
+    }
+  }
+);
 
 // // Catch-all route for the app
-// app.get('*', (req: Request, res: Response) => {
-//   const shop = req.query.shop;
-//   if (shop) {
-//     res
-//       .status(200)
-//       .send(`App is installed for shop: ${shop}`);
-//   } else {
-//     res
-//       .status(400)
-//       .send('Missing shop parameter');
-//   }
-// });
+app.get('*', (req: Request, res: Response) => {
+  const shop = req.query.shop;
+  if (shop) {
+    res
+      .status(200)
+      .send(`App is installed for shop: ${shop}`);
+  } else {
+    res
+      .status(400)
+      .send('Missing shop parameter');
+  }
+});
 
-// // Error handling middleware
-// app.use(
-//   (
-//     err: any,
-//     req: Request,
-//     res: Response,
-//     next: NextFunction
-//   ) => {
-//     console.error('Unhandled error:', err);
-//     res
-//       .status(500)
-//       .send('An unexpected error occurred');
-//   }
-// );
+// Error handling middleware
+app.use(
+  (
+    err: any,
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    console.error('Unhandled error:', err);
+    res
+      .status(500)
+      .send('An unexpected error occurred');
+  }
+);
 
 
 app.get(
