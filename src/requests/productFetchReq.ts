@@ -6,6 +6,7 @@ export interface ShopifyProduct {
   title: string;
   description: string;
   images: string;
+  price: string;
 }
 
 // Recursive function to fetch all products using pagination
@@ -47,11 +48,41 @@ export async function fetchAllProducts(
     }
   `;
 
+  const graphqlQueryWithPrice = `query getProducts($cursor: String) {
+  products(first: 100, after: $cursor) {
+    edges {
+      node {
+        id
+        title
+        description
+        variants(first: 1) {
+          edges {
+            node {
+              price 
+            }
+          }
+        }
+        images(first: 1) {
+          edges {
+            node {
+              src
+            }
+          }
+        }
+      }
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    }
+  }`;
+
   try {
     const response = await axios.post(
       `https://${shop}/admin/api/2024-07/graphql.json`,
       {
-        query: graphqlQuery,
+        query: graphqlQueryWithPrice,
         variables: { cursor },
       },
       {
@@ -65,6 +96,15 @@ export async function fetchAllProducts(
       'Product Fetch Response: ',
       response.data
     );
+
+    // console.log(
+    //   JSON.stringify(
+    //     response.data.data.products,
+    //     null,
+    //     2
+    //   )
+    // );
+
     const { edges, pageInfo } =
       response.data.data.products;
     products.push(
@@ -75,6 +115,8 @@ export async function fetchAllProducts(
         images:
           edge.node.images.edges[0]?.node?.src ||
           'N/A', // Extract image URL or fallback.
+        price:
+          edge.node.variants.edges[0]?.node?.price || 'N/A',  
       }))
     );
 

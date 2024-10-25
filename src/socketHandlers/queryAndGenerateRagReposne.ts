@@ -71,7 +71,8 @@ export async function queryAndGenerateResponse(
           Score: ${match.score}
     Product Image URL: ${getProductImageUrl(
       match.metadata?.images
-    )}`
+    )}
+    Price: ${match.metadata?.price || 'N/A'}`
       )
       .join('\n\n');
 
@@ -312,6 +313,7 @@ Provide a response with Markdown formatting for all sections except 'recommendat
                   use_case: { type: 'string' },
                   maintenance: { type: 'string' },
                   image_url: { type: 'string' },
+                  price: { type: 'string' },
                 },
               },
               description:

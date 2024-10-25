@@ -408,92 +408,22 @@ try {
     },
   ];
 
-  // Communication route for OpenAI API
-  // socket.on('openaiPrompt', async (data) => {
-  //   const { prompt } = data;
-  //    conversationHistory = [
-  //      {
-  //        role: 'system',
-  //        content:
-  //          process.env.OPENAI_AGENT_PROMPT || '',
-  //      },
-  //    ];
-  //   conversationHistory.push({
-  //     role: 'user',
-  //     content: prompt,
-  //   });
-
-  //   console.log(
-  //     'Prompt received from client:',
-  //     prompt
-  //   );
-  //   try {
-  //     // Send the prompt to OpenAI API
-  //   //  const response =
-  //   //    await openai.completions.create({
-  //   //      model:
-  //   //         // your fine-tuned model ID
-  //   //      prompt: conversationHistory.join('\n'), // convert the chat history into a prompt
-  //   //      max_tokens: 1000,
-  //   //    });
-
-  //      const response =
-  //        await openai.chat.completions.create({
-  //          model: 'ft:gpt-4o-mini-2024-07-18:bhizchat::AJAXyweI',// or your specific model ID
-  //          messages: conversationHistory,
-  //          max_tokens: 1000,
-  //        });
-  //     console.log(
-  //       'Index.ts OpenAI response:',
-  //       response.choices[0]?.message?.content
-  //     );
-
-  //     const aiResponse =
-  //       response.choices[0]?.message?.content ??
-  //       'Empty response from OpenAI';
-
-  //     // Add the assistant's response to the conversation history
-  //     conversationHistory.push({
-  //       role: 'assistant',
-  //       content: aiResponse,
-  //     });
-
-  //     // Emit the result back to the client
-  //     socket.emit('openaiResponse', {
-  //       success: true,
-  //       result:
-  //         response.choices[0]?.message?.content ??
-  //         '',
-  //     });
-  //   } catch (error) {
-  //     console.error(
-  //       'Error with OpenAI API:',
-  //       (error as Error).message
-  //     );
-  //     socket.emit('openaiResponse', {
-  //       success: false,
-  //       message:
-  //         'An error occurred with the OpenAI API',
-  //     });
-  //   }
-  // });
-
   socket.on('disconnect', () => {
     console.log('User disconnected');
   });
 });
 
 
-// // CORS Middleware
-// app.use(
-//   cors({
-//     origin:
-//       process.env.FRONTEND_URL ||
-//       'http://localhost:3000',
-//     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-//     credentials: true,
-//   })
-// );
+// CORS Middleware
+app.use(
+  cors({
+    origin:
+      process.env.FRONTEND_URL ||
+      'http://localhost:3000',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true,
+  })
+);
 
 // Shopify OAuth routes
 // app.get(
