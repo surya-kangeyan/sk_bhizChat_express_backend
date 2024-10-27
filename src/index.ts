@@ -316,13 +316,41 @@ io.on('connection', (socket) => {
   socket.on('openaiPrompt', async (data) => {
     console.log(`Received prompt from client: ${data.prompt}`);
     const { userQuery } = data.prompt;
-    const gptResponse =
+    let gptResponse =
       await queryAndGenerateResponse(data.prompt);
+        console.log(`index.ts the gpt response is ${ gptResponse}`)
+        
+
+        if (typeof gptResponse !== 'string') {
+          let count : number = 0
+          for await (const chunk of gptResponse) {
+            
+            count++
+             const content =
+               chunk.choices[0]?.delta?.content;
+             const functionCallArgs =
+               chunk.choices[0]?.delta
+                 ?.function_call?.arguments;
+            // console.log(`index.ts chunk:`, chunk);
+            console.log(`index.ts the chunk might be a content type string ${chunk.choices[0]?.delta.content}`)
+            console.log(`index.ts the chunk count is ${count} --> ${chunk.choices[0]?.delta?.function_call?.arguments || ''}`);
+             const message = content
+               ? content
+               : functionCallArgs
+               ?functionCallArgs
+               :'';
+            socket.emit('openaiResponse', {
+              success: true,
+              result: message,
+            });
+          }
+        }
+
 
     console.log(`Sending response to client: ${gptResponse}`);
-    socket.emit('openaiResponse', {
+    socket.emit('openaiResponseEnd', {
       success: true,
-      result: gptResponse,
+      result: '\n',
     });
   });
   // Fetch collections via WebSocket
