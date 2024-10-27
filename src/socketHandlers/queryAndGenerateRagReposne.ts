@@ -31,7 +31,56 @@ export async function queryAndGenerateResponse(
 ) {
   console.log(`QueryAndGenerateResponse Received user query: ${userQuery}`);``
   try {
-    
+    // Step 1: Generate embedding for the user query
+   
+
+    // Step 4: Send the user query and product context to GPT for generation
+    // const gptResponse =
+      // await openai.chat.completions.create({
+      //   model: 'gpt-4o', // Use GPT-4 or your fine-tuned model
+      //   messages: [
+      //     {
+      //       role: 'system',
+      //       content:
+      //         process.env.OPENAI_AGENT_PROMPT ||
+      //         'You are a helpful assistant recommending fitness products.',
+      //     },
+      //     {
+      //       role: 'user',
+      //       content: `When responding, return the response in the following structured JSON format:
+
+      //             {
+      //               "intro_message": "An introductory message explaining the context and product selection process.",
+      //               "message": "A summary message recommending the chosen product(s).",
+      //               "recommendations": [
+      //                 {
+      //                   "id": "Product ID",
+      //                   "title": "Product Title",
+      //                   "description": "Product Description",
+      //                   "category": "Product Category (e.g., Cardio Equipment, Strength Equipment)",
+      //                   "use_case": "How the product fits into the user's fitness routine, with actionable tips for use.",
+      //                   "maintenance": "Care or maintenance tips to keep the product in good condition.",
+      //                   "image_url": "Image URL for the product."
+      //                 }
+      //               ],
+      //               "fitness_benefits": "A detailed explanation of how these product(s) support the user's fitness journey, including specific fitness outcomes (e.g., endurance, weight loss).",
+      //               "next_steps": "Suggested follow-up actions, such as incorporating the product(s) into a workout routine or tracking progress.",
+      //               "follow_up_message": "A closing message encouraging the user to return and share their progress for further assistance."
+      //             }
+
+      //             Use the following product data to make your recommendation. You can recommend **any number of products**, but normally try to limit the recommendations to 2 for clarity and focus:
+
+      //             ${productContext}
+
+      //             User Query: ${userQuery}
+
+      //             Ensure that each section in the JSON response contains relevant and meaningful content. Follow the structure strictly to ensure the response is easy to parse. If no suitable product can be recommended, explain why within the 'message' field.`,
+      //       },
+      //   ],
+      //   max_tokens: 5000,
+      // });
+   
+
       const intentResponse =
         await openai.chat.completions.create({
           model: 'gpt-4o',
@@ -108,7 +157,6 @@ export async function queryAndGenerateResponse(
     completion =
       await openai.chat.completions.create({
         model: 'gpt-4o',
-        stream: true,
         messages: [
           {
             role: 'system',
@@ -199,7 +247,6 @@ export async function queryAndGenerateResponse(
         completion =
           await openai.chat.completions.create({
             model: 'gpt-4o',
-            stream: true,
             messages: [
               {
                 role: 'system',
@@ -217,11 +264,11 @@ export async function queryAndGenerateResponse(
               },
             ],
           });
-        // return completion.choices[0].message.content;
-        // console.log(completion.choices[0].message.content);
+        return completion.choices[0].message.content;
+        console.log(completion.choices[0].message.content);
     }
 
-    return completion;
+
 if (completion && completion.choices && completion.choices.length > 0) {
   const responseMessage = completion.choices[0].message;
   const functionCall = responseMessage?.function_call;
@@ -244,6 +291,7 @@ if (completion && completion.choices && completion.choices.length > 0) {
       'GPT raw unparsed json Response:',
       argumentsString
     );
+    // --------------------------------------------------------------------------------------------
     return (
       argumentsString ||
       'Sorry, I could not generate a response.'
