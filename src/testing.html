@@ -4,19 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <title>Shopify and OpenAI API Testing</title>
   </head>
   <body>
     <h2>Shopify Session and OpenAI API Testing</h2>
 
     <button id="store-session">Store Session</button>
 
+    <h2>Create User</h2>
+    <button id="create-user">Create Complete Dummy User</button>
+
     <h2>OpenAI API Testing</h2>
     <input type="text" id="openai-prompt" placeholder="Enter your prompt" />
     <button id="send-prompt">Send Prompt</button>
 
-    <!-- <h2>Query Products</h2>
-    <input type="text" id="product-query" placeholder="Enter product query" />
-    <button id="query-products">Query Products</button> -->
+     <h2>Fetch User by Email</h2>
+    <input type="email" id="user-email" placeholder="Enter user email" />
+    <button id="fetch-user">Fetch User Details</button>
 
     <div id="output"></div> <!-- For displaying messages -->
 
@@ -41,43 +45,106 @@
         logMessage('Connection Error: ' + error);
       });
 
+      // Create Complete Dummy User Button
+      document.getElementById('create-user').addEventListener('click', () => {
+        const dummyUser = {
+          userId: '64cae7843f3d2e4f1f3d7b56', // Example ObjectId
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          phoneNumber: '1234567890',
+          address: {
+            street: '123 Main St',
+            city: 'Anytown',
+            state: 'CA',
+            postalCode: '12345',
+            country: 'USA',
+          },
+          pastOrders: [
+            {
+              orderId: '64cae7843f3d2e4f1f3d7b57', // Example ObjectId
+              totalAmount: 199.99,
+              orderStatus: 'Completed',
+              createdAt: new Date('2023-10-20T14:48:00'),
+              updatedAt: new Date('2023-10-21T10:30:00'),
+            },
+          ],
+          favorites: [
+            {
+              productId: 101,
+              title: 'Sample Product',
+              price: 49.99,
+            },
+          ],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        logMessage('Creating user: ' + JSON.stringify(dummyUser));
+        socket.emit('createUser', dummyUser);
+
+        socket.on('userCreated', (response) => {
+          if (response.success) {
+            logMessage('User created successfully with ID: ' + response.userId);
+          } else {
+            logMessage('User creation failed: ' + response.error);
+          }
+        });
+      });
+
+       document.getElementById('fetch-user').addEventListener('click', () => {
+        const email = document.getElementById('user-email').value.trim();
+        if (!email) {
+          logMessage('Please enter a valid email address.');
+          return;
+        }
+
+        logMessage('Fetching user details for: ' + email);
+        socket.emit('getUserByEmail', email);
+
+        socket.on('userDetails', (response) => {
+          if (response.success) {
+            logMessage('User Details: ' + JSON.stringify(response.user));
+          } else {
+            logMessage('Error: ' + (response.message || response.error));
+          }
+        });
+      });
       // Store Session Button
       document.getElementById('store-session').addEventListener('click', () => {
         logMessage('Checking if server is alive...');
         socket.emit('pingServer');
 
-        socket.on('pongServer', async(data) => {
+        socket.on('pongServer', async (data) => {
           logMessage('Server response: ' + data.message);
           logMessage('Storing session...');
 
           const dummySession = {
-                               id: 'sk-test-store1.myshopify.com_75885969541',
-  shop: 'sk-test-store1.myshopify.com',
-  state: '706656270562885',
-  isOnline: true,
-  scope: 'write_orders,read_product_listings,write_products',
-  expires: '2024-10-26T17:42:46.787Z',
-  accessToken: 'shpua_67a19b6bec3c269193abc7df6cf7a6d5',
-  onlineAccessInfo: {
-    expires_in: 86399,
-    associated_user_scope: 'write_orders,read_product_listings,write_products',
-    session: null,
-    account_number: null,
-    associated_user: {
-      id: 75885969541,
-      first_name: 'surya',
-      last_name: 'kangeyan',
-      email: 'suryakangeyan4701@gmail.com',
-      account_owner: true,
-      locale: 'en',
-      collaborator: false,
-      email_verified: true
+            id: 'sk-test-store1.myshopify.com_75885969541',
+            shop: 'sk-test-store1.myshopify.com',
+            state: '706656270562885',
+            isOnline: true,
+            scope: 'write_orders,read_product_listings,write_products',
+            expires: '2024-10-26T17:42:46.787Z',
+            accessToken: 'shpua_67a19b6bec3c269193abc7df6cf7a6d5',
+            onlineAccessInfo: {
+              expires_in: 86399,
+              associated_user_scope: 'write_orders,read_product_listings,write_products',
+              associated_user: {
+                id: 75885969541,
+                first_name: 'surya',
+                last_name: 'kangeyan',
+                email: 'suryakangeyan4701@gmail.com',
+                account_owner: true,
+                locale: 'en',
+                collaborator: false,
+                email_verified: true,
               },
             },
           };
 
           socket.emit('storeSession', dummySession);
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise((resolve) => setTimeout(resolve, 1000));
           socket.emit('fetchAndStoreAllProducts');
 
           socket.on('sessionStored', (data) => {
@@ -103,22 +170,6 @@
 
         socket.on('openaiError', (error) => {
           logMessage('Error from OpenAI: ' + error);
-        });
-      });
-
-      // Query Products Button
-      document.getElementById('query-products').addEventListener('click', () => {
-        const productQuery = document.getElementById('product-query').value;
-        logMessage('Querying products: ' + productQuery);
-
-        socket.emit('queryProducts', {productQuery });
-
-        socket.on('queryResults', (data) => {
-          logMessage('Query Results: ' + data.message);
-        });
-
-        socket.on('error', (error) => {
-          logMessage('Error querying products: ' + error);
         });
       });
 
