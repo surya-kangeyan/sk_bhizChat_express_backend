@@ -10,7 +10,7 @@ import express, {
   Response,
   NextFunction,
 } from 'express';
-import pinecone from 'pinecone-client';
+// import pinecone from 'pinecone-client';
 import  {queryAndGenerateResponse}  from './socketHandlers/queryAndGenerateRagReposne.js';
 
 import { Pinecone } from '@pinecone-database/pinecone';
@@ -23,6 +23,11 @@ import mongoose from 'mongoose';
 import Session from './models/session.js';
 import crypto from 'crypto';
 import OpenAI from 'openai';
+import ChatThread from './models/userChatThread'; // Ensure this import is correct
+import { Chat } from 'openai/resources';
+import { saveChatThread } from './socketHandlers/saveChatThread';
+import { ObjectId } from 'mongodb';
+
 // import { createProductWebhook } from './services/productMutations';
 
 dotenv.config();
@@ -68,7 +73,7 @@ const initializePineconeIndex = async () => {
   });
 };
 
-initializePineconeIndex().catch(console.error);
+// initializePineconeIndex().catch(console.error);
 export const pcIndex = pc.Index('bhizchat-rag');
 
 
@@ -208,122 +213,190 @@ io.on('connection', (socket) => {
     }
   );
 
-socket.on(
-  'fetchAndStoreAllProducts',
-  async () => {
-    console.log(
-      'Fetching all products from Shopify...'
-    );
+// socket.on(
+//   'fetchAndStoreAllProducts',
+//   async () => {
+//     console.log(
+//       'Fetching all products from Shopify...'
+//     );
 
-    try {
-      if (
-        !shopifySession ||
-        !shopifySession.shop
-      ) {
-        socket.emit(
-          'error',
-          'Shopify session is not available.'
-        );
-        return;
-      }
+//     try {
+//       if (
+//         !shopifySession ||
+//         !shopifySession.shop
+//       ) {
+//         socket.emit(
+//           'error',
+//           'Shopify session is not available.'
+//         );
+//         return;
+//       }
 
-      const shop = shopifySession.shop;
-      const accessToken =
-        shopifySession.accessToken;
+//       const shop = shopifySession.shop;
+//       const accessToken =
+//         shopifySession.accessToken;
 
-      // Fetch all products using the imported function
-      const allProducts: ShopifyProduct[] =
-        await fetchAllProducts(shop, accessToken);
-       for (const product of allProducts) {
-         console.log(`Product ID: ${product.id}`);
-         console.log(
-           `Product Title: ${product.title}`
-         );
-         console.log(
-           `Product Description: ${product.description}`
-         );
-          console.log(
-            `Product Image URL: ${product.images}`
-          );
-         console.log(
-           '----------------------------------'
-         );
-       }
+//       // Fetch all products using the imported function
+//       const allProducts: ShopifyProduct[] =
+//         await fetchAllProducts(shop, accessToken);
+//        for (const product of allProducts) {
+//          console.log(`Product ID: ${product.id}`);
+//          console.log(
+//            `Product Title: ${product.title}`
+//          );
+//          console.log(
+//            `Product Description: ${product.description}`
+//          );
+//           console.log(
+//             `Product Image URL: ${product.images}`
+//           );
+//          console.log(
+//            '----------------------------------'
+//          );
+//        }
 
 
-      // Iterate over products and generate embeddings
-      for (const product of allProducts) {
-        const embeddingResponse =
-          await openai.embeddings.create({
-            input: product.description,
-            model: 'text-embedding-ada-002',
-          });
+//       // Iterate over products and generate embeddings
+//       for (const product of allProducts) {
+//         const embeddingResponse =
+//           await openai.embeddings.create({
+//             input: product.description,
+//             model: 'text-embedding-ada-002',
+//           });
 
-        const embedding =
-          embeddingResponse.data[0].embedding;
-        console.log(
-          `Embedding for product: ${product.title}`,
-          embedding
-        );
+//         const embedding =
+//           embeddingResponse.data[0].embedding;
+//         console.log(
+//           `Embedding for product: ${product.title}`,
+//           embedding
+//         );
     
 
-        // Store the embedding in Pinecone
-  await pcIndex.upsert([
-    {
-      id: product.id,
-      values: embedding,
-      metadata: Object.fromEntries(
-        Object.entries(product)
-          .filter(
-            ([key, value]) =>
-              key !== 'Symbol.iterator' &&
-              value != null
-          )
-          .map(([key, value]) => [
-            key,
-            Array.isArray(value)
-              ? value.join(', ')
-              : String(value),
-          ])
-      ) as Record<string, string>,
-    },
-  ]);
+//         // Store the embedding in Pinecone
+//   await pcIndex.upsert([
+//     {
+//       id: product.id,
+//       values: embedding,
+//       metadata: Object.fromEntries(
+//         Object.entries(product)
+//           .filter(
+//             ([key, value]) =>
+//               key !== 'Symbol.iterator' &&
+//               value != null
+//           )
+//           .map(([key, value]) => [
+//             key,
+//             Array.isArray(value)
+//               ? value.join(', ')
+//               : String(value),
+//           ])
+//       ) as Record<string, string>,
+//     },
+//   ]);
 
-        console.log(
-          `Stored embedding for product: ${product.title}`
-        );
+//         console.log(
+//           `Stored embedding for product: ${product.title}`
+//         );
       
-      }
-      // Emit success message to the client
-      socket.emit('productsStored', {
-        success: true,
-        message:
-          'All products have been successfully embedded and stored in Pinecone.',
-      });
-    } catch (error) {
-      console.error(
-        'Error fetching or storing products:',
-        error
-      );
-      socket.emit(
-        'error',
-        'Failed to fetch and store products.'
-      );
-    }
-  }
-);
+//       }
+//       // Emit success message to the client
+//       socket.emit('productsStored', {
+//         success: true,
+//         message:
+//           'All products have been successfully embedded and stored in Pinecone.',
+//       });
+//     } catch (error) {
+//       console.error(
+//         'Error fetching or storing products:',
+//         error
+//       );
+//       socket.emit(
+//         'error',
+//         'Failed to fetch and store products.'
+//       );
+//     }
+//   }
+// );
 
   socket.on('openaiPrompt', async (data) => {
     console.log(`Received prompt from client: ${data.prompt}`);
-    const { userQuery } = data.prompt;
-    const gptResponse =
-      await queryAndGenerateResponse(data.prompt);
+    const { userQuery } = data.prompt;     
+    try{
+      const gptResponse = await queryAndGenerateResponse(data.prompt);
+      // const chatThread = new ChatThread({
+      //   userId: new mongoose.Types.ObjectId(), // do we create a new user id? or do we get from shopify
+      //   shopId: shopifySession.shop,
+      //   chatThreadId: new mongoose.Types.ObjectId(), 
+      //   messages: [
+      //     {
+      //       messageId: new mongoose.Types.ObjectId(), 
+      //       userInput: {
+      //         content: userQuery,
+      //         timestamp: new Date(),
+      //       },
+      //       llmOutput: {
+      //         content: gptResponse,
+      //         timestamp: new Date(),
+      //         recommendations: [], 
+      //       },
+      //     },
+      //   ],
+      //   createdAt: new Date(),
+      //   updatedAt: new Date(),
+      // });
+      await saveChatThread(new ObjectId('671db06569ef6ff3df658240'), "Shopify shop ID", data.prompt, gptResponse);
+      console.log(`Sending response to client: ${gptResponse}`);
+      socket.emit('openaiResponse', {
+        success: true,
+        result: gptResponse, 
+      });
+    } 
+    catch (error) {
+      console.error('Error generating response:', error);
+      socket.emit('error', 'Failed to generate response');
+    }
+  });
+  socket.on('fetchConversations', async (userId) => {
+    userId = '671db06569ef6ff3df658240'
+    console.log(`Fetching conversations for userId: ${userId}`);
+    try {
+      // Validate userId
+      if (!userId) {
+        socket.emit('error', 'Invalid userId');
+        return;
+      }
+      const conversations = await ChatThread.find({ userId: userId });
+      // console.log("AFTER FIND ONE: ",conversations)
+      // Sort messages by timestamp for each conversation
+      const sortedConversations = conversations.map(conversation => {
+        // console.log("MESSAGES: ", conversation.messages)
+        const sortedMessages = conversation.messages.sort((a, b) => 
+          new Date(a.userInput.timestamp).getTime() - new Date(b.userInput.timestamp).getTime()
+        ).map(message => {
+          return {
+            messageId: message.messageId,
+            userMessage: message.userInput.content,
+            aiResponse: message.llmOutput.content,
+            // recommendations: message.llmOutput.content 
+          }
+        })
+        console.log("SORTED MESSAGES", sortedMessages)
+        return {
+          // conversationId: conversation._id,
+          messages: sortedMessages
+          
+        };
+      });
+      socket.emit('conversationsData', {
+        success: true,
+        conversations: sortedConversations,
+      });
+      
 
-    console.log(`Sending response to client: ${gptResponse}`);
-    socket.emit('openaiResponse', {
-      success: true,
-      result: gptResponse,
-    });
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+      socket.emit('error', 'Failed to fetch conversations');
+    }
   });
   // Fetch collections via WebSocket
   socket.on('fetchCollections', async () => {
@@ -672,4 +745,6 @@ server.listen(PORT, () => {
   );
 
 });
+
+
 

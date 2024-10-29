@@ -46,7 +46,8 @@ const UserInputSchema: Schema = new Schema({
 });
 
 const RecommendationSchema: Schema = new Schema({
-  productId: { type: Number, required: true },
+  id: { type: String, required: true }, 
+  //changed above line to type String, was originally number
   title: { type: String, required: true },
   description: { type: String, required: false },
   rating: { type: Number, required: false },
