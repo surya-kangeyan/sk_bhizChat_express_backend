@@ -24,7 +24,7 @@ import Session from './models/session.js';
 import crypto from 'crypto';
 import OpenAI from 'openai';
 // import { createProductWebhook } from './services/productMutations';
-
+import User from './models/userDetails.js';
 dotenv.config();
 
 
@@ -208,6 +208,68 @@ io.on('connection', (socket) => {
     }
   );
 
+  socket.on('createUser', async (userData) => {
+    try {
+      const newUser = new User({
+        userId: new mongoose.Types.ObjectId(),
+        ...userData,
+      });
+
+      await newUser.save();
+      console.log('User created:', newUser);
+      socket.emit('userCreated', {
+        success: true,
+        userId: newUser.userId,
+      });
+    } catch (error) {
+      console.error(
+        'Error creating user:',
+        error
+      );
+      socket.emit('userCreated', {
+        success: false,
+        error: error,
+      });
+    }
+  });
+
+  socket.on('getUserByEmail', async (email) => {
+    try {
+      if (!email) {
+        return socket.emit('userDetails', {
+          success: false,
+          message: 'Email is required',
+        });
+      }
+
+      const user = await User.findOne({
+        email: email.trim().toLowerCase(),
+      });
+
+      if (user) {
+        console.log('User found:', user);
+        socket.emit('userDetails', {
+          success: true,
+          user,
+        });
+      } else {
+        socket.emit('userDetails', {
+          success: false,
+          message: 'User not found',
+        });
+      }
+    } catch (error) {
+      console.error(
+        'Error fetching user:',
+        error
+      );
+      socket.emit('userDetails', {
+        success: false,
+        error: 'Internal server error',
+      });
+    }
+  });
+
 // socket.on(
 //   'fetchAndStoreAllProducts',
 //   async () => {
@@ -330,7 +392,7 @@ io.on('connection', (socket) => {
     console.log(
       'Received request to fetch collections'
     );
-try {
+  try {
       if (
         !shopifySession ||
         !shopifySession.shop
