@@ -17,12 +17,17 @@ import { Pinecone } from '@pinecone-database/pinecone';
 import axios from 'axios';
 import dotenv from 'dotenv';
 import cors from 'cors';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { createServer } from 'http';
 import mongoose from 'mongoose';
 import Session from './models/session.js';
 import crypto from 'crypto';
 import OpenAI from 'openai';
+import ChatThread from './models/userChatThread'; // Ensure this import is correct
+import { Chat } from 'openai/resources';
+import { saveChatThread } from './socketHandlers/saveChatThread';
+import { ObjectId } from 'mongodb';
+
 // import { createProductWebhook } from './services/productMutations';
 import User from './models/userDetails.js';
 dotenv.config();
@@ -68,7 +73,7 @@ const initializePineconeIndex = async () => {
   });
 };
 
-initializePineconeIndex().catch(console.error);
+// initializePineconeIndex().catch(console.error);
 export const pcIndex = pc.Index('bhizchat-rag');
 
 
@@ -117,10 +122,13 @@ const shopify = shopifyApp({
 
 
 let shopifySession: any
-
+interface AuthenticatedSocket extends Socket {
+  userId?: string;
+  lastActivity?: number;
+}
 // Handling Shopify OAuth initiation from Socket.IO
-io.on('connection', (socket) => {
-  console.log('A user connected: ', socket.id);
+io.on('connection', (socket: AuthenticatedSocket) => {
+  console.log('A client  connected: ', socket.id);
 
   // Listen for event to start Shopify OAuth
   socket.on('startShopifyAuth', () => {
@@ -134,7 +142,9 @@ io.on('connection', (socket) => {
 
   socket.on('pingServer', () => {
     console.log('Ping received from client');
-    socket.emit('pongServer', { message: 'Server is alive' });
+    socket.emit('pongServer', {
+      message: 'Server is alive',
+    });
   });
 
   socket.on(
@@ -208,7 +218,6 @@ io.on('connection', (socket) => {
     }
   );
 
-
   socket.on('createUser', async (userData) => {
     try {
       const newUser = new User({
@@ -230,6 +239,35 @@ io.on('connection', (socket) => {
       socket.emit('userCreated', {
         success: false,
         error: error,
+      });
+    }
+  });
+
+  socket.on('authenticate', async (userData) => {
+    try {
+      // Verify user data (you might want to add more validation)
+      if (!userData || !userData.userId) {
+        throw new Error('Invalid user data');
+      }
+
+      // Store userId in the socket for future use
+      socket.userId = userData.userId;
+      socket.lastActivity = Date.now();
+      console.log(
+        'User authenticated:',
+        socket.userId
+      );
+      socket.emit('authenticated', {
+        success: true,
+      });
+    } catch (error) {
+      console.error(
+        'Authentication error:',
+        error
+      );
+      socket.emit('authenticated', {
+        success: false,
+        error: 'Authentication failed',
       });
     }
   });
@@ -271,177 +309,280 @@ io.on('connection', (socket) => {
     }
   });
 
-// socket.on(
-//   'fetchAndStoreAllProducts',
-//   async () => {
-//     console.log(
-//       'Fetching all products from Shopify...'
-//     );
+  // socket.on(
+  //   'fetchAndStoreAllProducts',
+  //   async () => {
+  //     console.log(
+  //       'Fetching all products from Shopify...'
+  //     );
 
-socket.on(
-  'fetchAndStoreAllProducts',
-  async () => {
+  //     try {
+  //       if (
+  //         !shopifySession ||
+  //         !shopifySession.shop
+  //       ) {
+  //         socket.emit(
+  //           'error',
+  //           'Shopify session is not available.'
+  //         );
+  //         return;
+  //       }
+
+  //       const shop = shopifySession.shop;
+  //       const accessToken =
+  //         shopifySession.accessToken;
+
+  //       // Fetch all products using the imported function
+  //       const allProducts: ShopifyProduct[] =
+  //         await fetchAllProducts(shop, accessToken);
+  //        for (const product of allProducts) {
+  //          console.log(`Product ID: ${product.id}`);
+  //          console.log(
+  //            `Product Title: ${product.title}`
+  //          );
+  //          console.log(
+  //            `Product Description: ${product.description}`
+  //          );
+  //           console.log(
+  //             `Product Image URL: ${product.images}`
+  //           );
+  //          console.log(
+  //            '----------------------------------'
+  //          );
+  //        }
+
+  //       // Iterate over products and generate embeddings
+  //       for (const product of allProducts) {
+  //         const embeddingResponse =
+  //           await openai.embeddings.create({
+  //             input: product.description,
+  //             model: 'text-embedding-ada-002',
+  //           });
+
+  //         const embedding =
+  //           embeddingResponse.data[0].embedding;
+  //         console.log(
+  //           `Embedding for product: ${product.title}`,
+  //           embedding
+  //         );
+
+  //         // Store the embedding in Pinecone
+  //   await pcIndex.upsert([
+  //     {
+  //       id: product.id,
+  //       values: embedding,
+  //       metadata: Object.fromEntries(
+  //         Object.entries(product)
+  //           .filter(
+  //             ([key, value]) =>
+  //               key !== 'Symbol.iterator' &&
+  //               value != null
+  //           )
+  //           .map(([key, value]) => [
+  //             key,
+  //             Array.isArray(value)
+  //               ? value.join(', ')
+  //               : String(value),
+  //           ])
+  //       ) as Record<string, string>,
+  //     },
+  //   ]);
+
+  //         console.log(
+  //           `Stored embedding for product: ${product.title}`
+  //         );
+
+  //       }
+  //       // Emit success message to the client
+  //       socket.emit('productsStored', {
+  //         success: true,
+  //         message:
+  //           'All products have been successfully embedded and stored in Pinecone.',
+  //       });
+  //     } catch (error) {
+  //       console.error(
+  //         'Error fetching or storing products:',
+  //         error
+  //       );
+  //       socket.emit(
+  //         'error',
+  //         'Failed to fetch and store products.'
+  //       );
+  //     }
+  //   }
+  // );
+
+  socket.on('openaiPrompt', async (data) => {
+    socket.lastActivity = Date.now();
     console.log(
-      'Fetching all products from Shopify...'
+      `Received prompt from client: ${data.prompt}`
+    );
+    const { userQuery } = data.prompt;
+
+    // Initialize a variable to hold the full concatenated response
+    let fullGptResponse = '';
+
+    // Get the stream response
+    let gptResponse =
+      await queryAndGenerateResponse(data.prompt);
+    console.log(
+      `index.ts the gpt response is ${gptResponse}`
     );
 
+    if (typeof gptResponse !== 'string') {
+      for await (const chunk of gptResponse) {
+        const content =
+          chunk.choices[0]?.delta?.content;
+        const functionCallArgs =
+          chunk.choices[0]?.delta?.function_call
+            ?.arguments;
 
-    try {
-      if (
-        !shopifySession ||
-        !shopifySession.shop
-      ) {
-        socket.emit(
-          'error',
-          'Shopify session is not available.'
-        );
-        return;
+        // Concatenate each chunk to form the full response
+        const message = content
+          ? content
+          : functionCallArgs
+          ? functionCallArgs
+          : '';
+        fullGptResponse += message;
+
+        // Emit each chunk to the client in real-time
+        socket.emit('openaiResponse', {
+          success: true,
+          result: message,
+        });
       }
 
-      const shop = shopifySession.shop;
-      const accessToken =
-        shopifySession.accessToken;
-
-      // Fetch all products using the imported function
-      const allProducts: ShopifyProduct[] =
-        await fetchAllProducts(shop, accessToken);
-       for (const product of allProducts) {
-         console.log(`Product ID: ${product.id}`);
-         console.log(
-           `Product Title: ${product.title}`
-         );
-         console.log(
-           `Product Description: ${product.description}`
-         );
-          console.log(
-            `Product Image URL: ${product.images}`
-          );
-         console.log(
-           '----------------------------------'
-         );
-       }
-
-
-      // Iterate over products and generate embeddings
-      for (const product of allProducts) {
-        const embeddingResponse =
-          await openai.embeddings.create({
-            input: product.description,
-            model: 'text-embedding-ada-002',
-          });
-
-        const embedding =
-          embeddingResponse.data[0].embedding;
-        console.log(
-          `Embedding for product: ${product.title}`,
-          embedding
-        );
-    
-
-        // Store the embedding in Pinecone
-  await pcIndex.upsert([
-    {
-      id: product.id,
-      values: embedding,
-      metadata: Object.fromEntries(
-        Object.entries(product)
-          .filter(
-            ([key, value]) =>
-              key !== 'Symbol.iterator' &&
-              value != null
-          )
-          .map(([key, value]) => [
-            key,
-            Array.isArray(value)
-              ? value.join(', ')
-              : String(value),
-          ])
-      ) as Record<string, string>,
-    },
-  ]);
-
-        console.log(
-          `Stored embedding for product: ${product.title}`
-        );
-      
-      }
-      // Emit success message to the client
-      socket.emit('productsStored', {
-        success: true,
-        message:
-          'All products have been successfully embedded and stored in Pinecone.',
-      });
-    } catch (error) {
-      console.error(
-        'Error fetching or storing products:',
-        error
-      );
-      socket.emit(
-        'error',
-        'Failed to fetch and store products.'
+      // Save the full concatenated response after the stream is complete
+      await saveChatThread(
+        new ObjectId(socket.userId),
+        'Shopify shop ID',
+        data.prompt,
+        fullGptResponse
       );
     }
-  }
-);
 
-   socket.on('openaiPrompt', async (data) => {
-     console.log(
-       `Received prompt from client: ${data.prompt}`
-     );
-     const { userQuery } = data.prompt;
-     let gptResponse =
-       await queryAndGenerateResponse(
-         data.prompt
-       );
-     console.log(
-       `index.ts the gpt response is ${gptResponse}`
-     );
+    console.log(
+      `Sending response to client: ${gptResponse}`
+    );
+    socket.emit('openaiResponseEnd', {
+      success: true,
+      result: '\n',
+    });
+  });
+  // =====================================================================================
+  //   socket.on('openaiPrompt', async (data) => {
+  //     console.log(`Received prompt from client: ${data.prompt}`);
+  //     const { userQuery } = data.prompt;
+  //     try{
+  //       const gptResponse = await queryAndGenerateResponse(data.prompt);
+  //       // const chatThread = new ChatThread({
+  //       //   userId: new mongoose.Types.ObjectId(), // do we create a new user id? or do we get from shopify
+  //       //   shopId: shopifySession.shop,
+  //       //   chatThreadId: new mongoose.Types.ObjectId(),
+  //       //   messages: [
+  //       //     {
+  //       //       messageId: new mongoose.Types.ObjectId(),
+  //       //       userInput: {
+  //       //         content: userQuery,
+  //       //         timestamp: new Date(),
+  //       //       },
+  //       //       llmOutput: {
+  //       //         content: gptResponse,
+  //       //         timestamp: new Date(),
+  //       //         recommendations: [],
+  //       //       },
+  //       //     },
+  //       //   ],
+  //       //   createdAt: new Date(),
+  //       //   updatedAt: new Date(),
+  //       // });
+  //       await saveChatThread(new ObjectId('671db06569ef6ff3df658240'), "Shopify shop ID", data.prompt, gptResponse);
+  //       console.log(`Sending response to client: ${gptResponse}`);
+  //       socket.emit('openaiResponse', {
+  //         success: true,
+  //         result: gptResponse,
+  //       });
+  //     }
+  //     catch (error) {
+  //       console.error('Error generating response:', error);
+  //       socket.emit('error', 'Failed to generate response');
+  //     }
+  //   });
+  socket.on(
+    'fetchConversations',
+    async (userId) => {
+      userId = socket.userId;
+      console.log(
+        `Fetching conversations for userId: ${userId}`
+      );
+      try {
+        // Validate userId
+        if (!userId) {
+          socket.emit('error', 'Invalid userId');
+          return;
+        }
+        const conversations =
+          await ChatThread.find({
+            userId: userId,
+          });
+        // console.log("AFTER FIND ONE: ",conversations)
+        // Sort messages by timestamp for each conversation
+        const sortedConversations =
+          conversations.map((conversation) => {
+            // console.log("MESSAGES: ", conversation.messages)
+            const sortedMessages =
+              conversation.messages
+                .sort(
+                  (a, b) =>
+                    new Date(
+                      a.userInput.timestamp
+                    ).getTime() -
+                    new Date(
+                      b.userInput.timestamp
+                    ).getTime()
+                )
+                .map((message) => {
+                  return {
+                    messageId: message.messageId,
+                    userMessage:
+                      message.userInput.content,
+                    aiResponse:
+                      message.llmOutput.content,
+                    // recommendations: message.llmOutput.content
+                  };
+                });
+            console.log(
+              'SORTED MESSAGES',
+              sortedMessages
+            );
+            return {
+              // conversationId: conversation._id,
+              messages: sortedMessages,
+            };
+          });
+        socket.emit('conversationsData', {
+          success: true,
+          conversations: sortedConversations,
+        });
+      } catch (error) {
+        console.error(
+          'Error fetching conversations:',
+          error
+        );
+        socket.emit(
+          'error',
+          'Failed to fetch conversations'
+        );
+      }
+    }
+  );
 
-     if (typeof gptResponse !== 'string') {
-       let count: number = 0;
-       for await (const chunk of gptResponse) {
-         count++;
-         const content =
-           chunk.choices[0]?.delta?.content;
-         const functionCallArgs =
-           chunk.choices[0]?.delta?.function_call
-             ?.arguments;
-         // console.log(`index.ts chunk:`, chunk);
-         console.log(
-           `index.ts the chunk might be a content type string ${chunk.choices[0]?.delta.content}`
-         );
-         console.log(
-           `index.ts the chunk count is ${count} --> ${
-             chunk.choices[0]?.delta
-               ?.function_call?.arguments || ''
-           }`
-         );
-         const message = content
-           ? content
-           : functionCallArgs
-           ? functionCallArgs
-           : '';
-         socket.emit('openaiResponse', {
-           success: true,
-           result: message,
-         });
-       }
-     }
-
-     console.log(
-       `Sending response to client: ${gptResponse}`
-     );
-     socket.emit('openaiResponseEnd', {
-       success: true,
-       result: '\n',
-     });
-   });
   // Fetch collections via WebSocket
   socket.on('fetchCollections', async () => {
     console.log(
       'Received request to fetch collections'
     );
-  try {
+    try {
       if (
         !shopifySession ||
         !shopifySession.shop
@@ -507,17 +648,27 @@ socket.on(
     }
   });
 
+  // Middleware to check session expiration before processing any event
+  socket.use((packet, next) => {
+    if (socket.userId && socket.lastActivity) {
+      const currentTime = Date.now();
+      const inactivityTime =
+        currentTime - socket.lastActivity;
 
-  let conversationHistory: Array<{
-    role: 'system' | 'user' | 'assistant';
-    content: string;
-  }> = [
-    {
-      role: 'system',
-      content:
-        process.env.OPENAI_AGENT_PROMPT || '',
-    },
-  ];
+      if (inactivityTime > 12 * 60 * 60 * 1000) {
+        // 5 minutes in milliseconds
+
+        console.log("Session expired and loggging out ")
+        socket.emit('sessionExpired');
+        socket.disconnect(true);
+        return;
+      }
+
+      // Update lastActivity
+      socket.lastActivity = currentTime;
+    }
+    next();
+  });
 
   socket.on('disconnect', () => {
     console.log('User disconnected');
@@ -783,4 +934,6 @@ server.listen(PORT, () => {
   );
 
 });
+
+
 

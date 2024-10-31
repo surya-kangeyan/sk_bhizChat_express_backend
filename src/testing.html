@@ -17,6 +17,12 @@
     <h2>OpenAI API Testing</h2>
     <input type="text" id="openai-prompt" placeholder="Enter your prompt" />
     <button id="send-prompt">Send Prompt</button>
+    <h2>Fetch Conversations</h2>
+    <button id="fetch-conversations">Fetch Conversations</button>
+
+<h2>Test Authentication</h2>
+<button id="test-authenticate">Test Authenticate</button>
+
 
      <h2>Fetch User by Email</h2>
     <input type="email" id="user-email" placeholder="Enter user email" />
@@ -91,6 +97,34 @@
           }
         });
       });
+  
+      document.getElementById('test-authenticate').addEventListener('click', () => {
+      const dummyAuthData = {
+    userId: '95cae7843f3d2e4f1f3d7b56', // Example ObjectId
+    email: 'john1.doe@example.com',
+    // Add any other fields you want to include for authentication
+  };
+  
+  logMessage('Testing authentication with data: ' + JSON.stringify(dummyAuthData));
+  socket.emit('authenticate', dummyAuthData);
+});
+
+// Listen for authentication response
+socket.on('authenticated', (response) => {
+  if (response.success) {
+    logMessage('Authentication successful');
+  } else {
+    logMessage('Authentication failed: ' + response.error);
+  }
+});
+
+socket.on('sessionExpired', () => {
+  logMessage('Session expired. Reloading page...');
+  clearSessionData();
+  setTimeout(() => {
+    window.location.reload();
+  }, 2000);
+});
 
        document.getElementById('fetch-user').addEventListener('click', () => {
         const email = document.getElementById('user-email').value.trim();
@@ -173,6 +207,60 @@
         });
       });
 
+
+      // Query Products Button
+      // document.getElementById('query-products').addEventListener('click', () => {
+      //   const productQuery = document.getElementById('product-query').value;
+      //   logMessage('Querying products: ' + productQuery);
+
+      //   socket.emit('queryProducts', {productQuery });
+
+      //   socket.on('queryResults', (data) => {
+      //     logMessage('Query Results: ' + data.message);
+      //   });
+
+      //   socket.on('error', (error) => {
+      //     logMessage('Error querying products: ' + error);
+      //   });
+      // });
+
+      // Add Fetch Conversations Button event listener
+      document.getElementById('fetch-conversations').addEventListener('click', () => {
+        const userId = '671db06569ef6ff3df65823d'; 
+        logMessage('Fetching conversations for userId: ' + userId);
+        
+        socket.emit('fetchConversations', userId); 
+        
+        socket.on('conversationsData', (data) => {
+          if (data.success) {
+            logMessage('Conversations fetched successfully.');
+            data.conversations.forEach(conversation => {
+              // logMessage(`Conversation ID brotha: ${conversation._id}`);
+              logMessage(`first user message!!! ${data.conversations[0].messages[0].userMessage}`)
+              conversation.messages.forEach(message => {
+                logMessage(`User: ${message.userInput.content} at ${message.userInput.timestamp}`);
+                
+                const llmOutput = JSON.parse(message.llmOutput.content);
+                logMessage(`AI Response: ${llmOutput.message}`);
+                
+                // Log recommendations if they exist
+                if (llmOutput.recommendations && Array.isArray(llmOutput.recommendations)) {
+                  llmOutput.recommendations.forEach(recommendation => {
+                    logMessage(`Recommendation: ${recommendation.title} - ${recommendation.description}`);
+                  });
+                }
+              });
+            });
+          } else {
+            logMessage('No conversations found.');
+          }
+        });
+
+        socket.on('error', (error) => {
+          logMessage('Error fetching conversations: ' + error);
+        });
+      });
+      //////
       socket.on('disconnect', () => {
         logMessage('Disconnected from the server.');
       });
