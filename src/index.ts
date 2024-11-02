@@ -465,7 +465,7 @@ io.on('connection', (socket: AuthenticatedSocket) => {
         data.prompt,
         fullGptResponse
       );
-      await Metrics.updateOne({}, { $inc: { totalConversations: 1, totalRecommendations: 1 } });
+      await Metrics.updateOne({}, { $inc: { totalConversations: 1, totalRecommendations: 2 } });
     }
 
     console.log(
@@ -585,9 +585,7 @@ io.on('connection', (socket: AuthenticatedSocket) => {
   );
   socket.on(
     'fetchMetrics',
-    async (userId) => {
-      // userId = socket.userId;
-      userId = '671db06569ef6ff3df658240'
+    async () => {
       try {
         const metrics = await fetchMetrics()
         socket.emit('metrics', {
