@@ -26,7 +26,9 @@ import OpenAI from 'openai';
 import ChatThread from './models/userChatThread'; // Ensure this import is correct
 import { Chat } from 'openai/resources';
 import { saveChatThread } from './socketHandlers/saveChatThread';
+import { fetchMetrics } from './socketHandlers/metrics'
 import { ObjectId } from 'mongodb';
+import Metrics from './models/metrics';
 
 // import { createProductWebhook } from './services/productMutations';
 import User from './models/userDetails.js';
@@ -226,6 +228,9 @@ io.on('connection', (socket: AuthenticatedSocket) => {
       });
 
       await newUser.save();
+
+      await Metrics.updateOne({}, { $inc: { totalUsers: 1 } }); 
+
       console.log('User created:', newUser);
       socket.emit('userCreated', {
         success: true,
@@ -428,6 +433,7 @@ io.on('connection', (socket: AuthenticatedSocket) => {
     console.log(
       `index.ts the gpt response is ${gptResponse}`
     );
+    
 
     if (typeof gptResponse !== 'string') {
       for await (const chunk of gptResponse) {
@@ -459,6 +465,7 @@ io.on('connection', (socket: AuthenticatedSocket) => {
         data.prompt,
         fullGptResponse
       );
+      await Metrics.updateOne({}, { $inc: { totalConversations: 1, totalRecommendations: 1 } });
     }
 
     console.log(
@@ -576,6 +583,29 @@ io.on('connection', (socket: AuthenticatedSocket) => {
       }
     }
   );
+  socket.on(
+    'fetchMetrics',
+    async (userId) => {
+      // userId = socket.userId;
+      userId = '671db06569ef6ff3df658240'
+      try {
+        const metrics = await fetchMetrics()
+        socket.emit('metrics', {
+          success: true,
+          metrics: metrics
+        });
+      } catch (error) {
+        console.error(
+          'Error fetching metrics:',
+          error
+        );
+        socket.emit(
+          'error',
+          'Failed to fetch number of users'
+        );
+      }
+    }
+  );
 
   // Fetch collections via WebSocket
   socket.on('fetchCollections', async () => {
@@ -647,6 +677,8 @@ io.on('connection', (socket: AuthenticatedSocket) => {
       );
     }
   });
+
+
 
   // Middleware to check session expiration before processing any event
   socket.use((packet, next) => {

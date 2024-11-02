@@ -16,7 +16,7 @@ export const saveChatThread = async (userId: mongoose.Types.ObjectId, shopId: st
               console.log(`Recommendation ${index + 1}:`, recommendation);
           });
       } else {
-          console.log("No recommendations found or not an array.");
+          console.log("No recommendations found or not an array.");//
       }
       } catch (error) {
         console.error("Invalid JSON string:", error);
