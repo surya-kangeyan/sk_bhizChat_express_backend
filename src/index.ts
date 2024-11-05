@@ -454,7 +454,31 @@ io.on('connection', (socket: AuthenticatedSocket) => {
         });
       }
       
-         
+   try {
+     // Parsing the full JSON response
+     const parsedResponse = JSON.parse(
+       fullGptResponse
+     );
+
+     // Extract `recommendation_count`
+     const recommendationCount =
+       parsedResponse.recommendation_count;
+     console.log(
+       `Recommendation count: ${recommendationCount}`
+     );
+
+     // You may also want to store the entire parsed response for further use
+     console.log(
+       'Full Parsed Response:',
+       parsedResponse
+     );
+   } catch (error) {
+     console.error(
+       'Error parsing GPT response:',
+       error
+     );
+   }
+
 
       // Save the full concatenated response after the stream is complete
       await saveChatThread(
@@ -473,7 +497,7 @@ io.on('connection', (socket: AuthenticatedSocket) => {
       result: '\n',
     });
   });
-  // =====================================================================================
+
   //   socket.on('openaiPrompt', async (data) => {
   //     console.log(`Received prompt from client: ${data.prompt}`);
   //     const { userQuery } = data.prompt;
