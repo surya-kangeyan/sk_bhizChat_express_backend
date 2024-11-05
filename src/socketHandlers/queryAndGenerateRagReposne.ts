@@ -174,6 +174,11 @@ export async function queryAndGenerateResponse(
                     description:
                       'An array of recommended products in JSON format.',
                   },
+                  recommendation_count: {
+                    type: 'integer',
+                    description:
+                      'The number of product recommendations provided.',
+                  },
                   fitness_benefits: {
                     type: 'string',
                     description:
@@ -194,6 +199,7 @@ export async function queryAndGenerateResponse(
                   'intro_message',
                   'message',
                   'recommendations',
+                  'recommendation_count',
                   'fitness_benefits',
                   'next_steps',
                   'follow_up_message',
