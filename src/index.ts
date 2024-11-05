@@ -442,7 +442,9 @@ io.on('connection', (socket: AuthenticatedSocket) => {
         const functionCallArgs =
           chunk.choices[0]?.delta?.function_call
             ?.arguments;
-
+   console.log(
+     `QueryAndGenerateRagResponse the recommendatuion count is ${functionCallArgs}`
+   );
         // Concatenate each chunk to form the full response
         const message = content
           ? content
@@ -457,6 +459,8 @@ io.on('connection', (socket: AuthenticatedSocket) => {
           result: message,
         });
       }
+      
+         
 
       // Save the full concatenated response after the stream is complete
       await saveChatThread(
