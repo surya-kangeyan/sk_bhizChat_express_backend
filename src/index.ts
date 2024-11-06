@@ -440,10 +440,10 @@ io.on('connection', (socket: AuthenticatedSocket) => {
         const content =
           chunk.choices[0]?.delta?.content;
         const functionCallArgs =
-          chunk.choices[0]?.delta?.function_call
-            ?.arguments;
+          chunk.choices[0]?.delta?.function_call?.arguments;
+          
    console.log(
-     `QueryAndGenerateRagResponse the recommendatuion count is ${functionCallArgs}`
+     `QueryAndGenerateRagResponse the recommendation count is ${functionCallArgs}`
    );
         // Concatenate each chunk to form the full response
         const message = content
@@ -458,10 +458,30 @@ io.on('connection', (socket: AuthenticatedSocket) => {
           success: true,
           result: message,
         });
-      }
-      
-         
 
+        try {
+          // Parsing the full JSON response
+          const parsedResponse = JSON.parse(
+            fullGptResponse
+          );
+          // Extract `recommendation_count`
+          const recommendationCount =
+            parsedResponse.recommendation_count;
+          console.log(
+            `Recommendation count: ${recommendationCount}`
+          );
+          // You may also want to store the entire parsed response for further use
+          console.log(
+            'Full Parsed Response:',
+            parsedResponse
+          );
+        } catch (error) {
+          console.error(
+            'Error parsing GPT response:',
+            error
+          );
+        }
+      
       // Save the full concatenated response after the stream is complete
       await saveChatThread(
         new ObjectId(socket.userId),
@@ -479,7 +499,7 @@ io.on('connection', (socket: AuthenticatedSocket) => {
       success: true,
       result: '\n',
     });
-  });
+  }});
   // =====================================================================================
   //   socket.on('openaiPrompt', async (data) => {
   //     console.log(`Received prompt from client: ${data.prompt}`);

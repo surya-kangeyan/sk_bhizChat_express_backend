@@ -232,6 +232,7 @@ export async function queryAndGenerateResponse(
               role: 'user',
               content: userQuery,
             },
+            
           ],
         });
       // return completion.choices[0].message.content;

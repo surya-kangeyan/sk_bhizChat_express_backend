@@ -10,6 +10,14 @@ export async function fetchMetrics() {
                 totalRecommendations: 0
             }) 
             await defaultData.save();
+            return {
+                success:true,
+                metrics: {
+                    users: 0,
+                    conversations: 0,
+                    recommendations: 0
+                }
+            }
         }
         if (metrics) {
             return { 
