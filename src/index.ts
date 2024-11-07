@@ -229,7 +229,22 @@ io.on('connection', (socket: AuthenticatedSocket) => {
 
       await newUser.save();
 
-      await Metrics.updateOne({}, { $inc: { totalUsers: 1 } }); 
+      // await Metrics.updateOne({}, { $inc: { totalUsers: 1 } }); 
+
+      const metrics = await Metrics.findOne()
+
+      if (metrics) {
+        metrics.totalUsers += 1;
+        await metrics.save();
+      } else {
+        const newMetrics = new Metrics({
+            totalUsers: 1,
+            totalConversations: 0,
+            totalRecommendations: 0,
+        });
+        await newMetrics.save();
+        console.log("SAVED A NEW METRIC!!!: ", newMetrics)
+      }
 
       console.log('User created:', newUser);
       socket.emit('userCreated', {
@@ -433,8 +448,6 @@ io.on('connection', (socket: AuthenticatedSocket) => {
     console.log(
       `index.ts the gpt response is ${gptResponse}`
     );
-    
-
     if (typeof gptResponse !== 'string') {
       for await (const chunk of gptResponse) {
         const content =
@@ -442,9 +455,9 @@ io.on('connection', (socket: AuthenticatedSocket) => {
         const functionCallArgs =
           chunk.choices[0]?.delta?.function_call?.arguments;
           
-   console.log(
-     `QueryAndGenerateRagResponse the recommendation count is ${functionCallArgs}`
-   );
+  //  console.log(
+  //    `QueryAndGenerateRagResponse the recommendation count is ${functionCallArgs}`
+  //  );
         // Concatenate each chunk to form the full response
         const message = content
           ? content
@@ -458,39 +471,56 @@ io.on('connection', (socket: AuthenticatedSocket) => {
           success: true,
           result: message,
         });
-
-        try {
-          // Parsing the full JSON response
-          const parsedResponse = JSON.parse(
-            fullGptResponse
-          );
-          // Extract `recommendation_count`
-          const recommendationCount =
-            parsedResponse.recommendation_count;
-          console.log(
-            `Recommendation count: ${recommendationCount}`
-          );
-          // You may also want to store the entire parsed response for further use
-          console.log(
-            'Full Parsed Response:',
-            parsedResponse
-          );
-        } catch (error) {
-          console.error(
-            'Error parsing GPT response:',
-            error
-          );
-        }
-      
-      // Save the full concatenated response after the stream is complete
-      await saveChatThread(
-        new ObjectId(socket.userId),
-        'Shopify shop ID',
-        data.prompt,
+    }
+    let finalRecommendationCount = 0
+    try {
+      const parsedResponse = JSON.parse(
         fullGptResponse
       );
-      await Metrics.updateOne({}, { $inc: { totalConversations: 1, totalRecommendations: 2 } });
+      // Extract `recommendation_count`
+      const recommendationCount =
+        parsedResponse.recommendation_count;
+      console.log(
+        `Recommendation count!!!!: ${recommendationCount}`
+      );
+      finalRecommendationCount =  recommendationCount
+      // You may also want to store the entire parsed response for further use
+      console.log(
+        'Full Parsed Response:',
+        parsedResponse
+      );
+    } catch (error) {
+      console.error(
+        'Error parsing GPT response:',
+        error
+      );
     }
+    await saveChatThread(
+      new ObjectId(socket.userId),
+      'Shopify shop ID',
+      data.prompt,
+      fullGptResponse
+    );    
+
+    const metrics = await Metrics.findOne()
+
+    if (metrics) {
+      metrics.totalConversations += 1;
+      metrics.totalRecommendations += finalRecommendationCount;
+      await metrics.save();
+
+      console.log("WE UPDATED THE METRICS!!!!!!", metrics)
+    } else {
+      const newMetrics = new Metrics({
+          totalUsers: 1,
+          totalConversations: 1,
+          totalRecommendations: finalRecommendationCount,
+      });
+      await newMetrics.save();
+      console.log("SAVED A NEW METRIC!!!: ", newMetrics)
+    }
+
+    // await Metrics.updateOne({}, { $inc: { totalConversations: 1, totalRecommendations: finalRecommendationCount } });
 
     console.log(
       `Sending response to client: ${gptResponse}`
