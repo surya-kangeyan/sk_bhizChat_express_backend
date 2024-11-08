@@ -192,7 +192,7 @@ export async function queryAndGenerateResponse(
                   follow_up_message: {
                     type: 'string',
                     description:
-                      'A closing message in Strict Markdown format encouraging the user to return and share their progress.',
+                      'A closing message in Strict Markdown format with two short, easily parsable follow-up questions about the recommended products, formatted as a numbered list.',
                   },
                 },
                 required: [

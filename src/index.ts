@@ -4,7 +4,7 @@ import {
   ShopifyProduct,
 } from './requests/productFetchReq';
 
-import { SQLiteSessionStorage } from '@shopify/shopify-app-session-storage-sqlite';
+
 import express, {
   Request,
   Response,
@@ -23,12 +23,12 @@ import mongoose from 'mongoose';
 import Session from './models/session.js';
 import crypto from 'crypto';
 import OpenAI from 'openai';
-import ChatThread from './models/userChatThread'; // Ensure this import is correct
+import ChatThread from './models/userChatThread.js'; // Ensure this import is correct
 import { Chat } from 'openai/resources';
-import { saveChatThread } from './socketHandlers/saveChatThread';
-import { fetchMetrics } from './socketHandlers/metrics'
+import { saveChatThread } from './socketHandlers/saveChatThread.js';
+import { fetchMetrics } from './socketHandlers/metrics.js'
 import { ObjectId } from 'mongodb';
-import Metrics from './models/metrics';
+import Metrics from './models/metrics.js';
 
 // import { createProductWebhook } from './services/productMutations';
 import User from './models/userDetails.js';
