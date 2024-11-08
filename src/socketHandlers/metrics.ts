@@ -1,4 +1,4 @@
-import Metrics from '../models/metrics';
+import Metrics from '../models/metrics.js';
 
 export async function fetchMetrics() {
     try {
