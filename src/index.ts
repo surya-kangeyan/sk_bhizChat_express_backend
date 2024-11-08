@@ -1,10 +1,8 @@
 import { shopifyApp } from '@shopify/shopify-app-express';
-import {
-  fetchAllProducts,
-  ShopifyProduct,
-} from './requests/productFetchReq';
-
-
+// import {
+//   fetchAllProducts,
+//   ShopifyProduct,
+// } from './requests/productFetchReq';
 import express, {
   Request,
   Response,
@@ -24,9 +22,11 @@ import Session from './models/session.js';
 import crypto from 'crypto';
 import OpenAI from 'openai';
 import ChatThread from './models/userChatThread.js'; // Ensure this import is correct
+
 import { Chat } from 'openai/resources';
 import { saveChatThread } from './socketHandlers/saveChatThread.js';
 import { fetchMetrics } from './socketHandlers/metrics.js'
+
 import { ObjectId } from 'mongodb';
 import Metrics from './models/metrics.js';
 
@@ -101,26 +101,26 @@ mongoose.connect(MONGODB_URI)
 
 // Initialize Shopify app
 
-const shopify = shopifyApp({
-  useOnlineTokens: true,
-  api: {
-    apiKey: process.env.SHOPIFY_API_KEY || '',
-    apiSecretKey:
-      process.env.SHOPIFY_API_SECRET || '',
-    scopes: process.env.SHOPIFY_SCOPES
-      ? process.env.SHOPIFY_SCOPES.split(',')
-      : [],
-    hostScheme: 'http',
-    hostName: `localhost:${PORT}`,
-  },
-  auth: {
-    path: '/api/auth',
-    callbackPath: '/api/auth/callback',
-  },
-  webhooks: {
-    path: '/api/webhooks',
-  },
-});
+// const shopify = shopifyApp({
+//   useOnlineTokens: true,
+//   api: {
+//     apiKey: process.env.SHOPIFY_API_KEY || '',
+//     apiSecretKey:
+//       process.env.SHOPIFY_API_SECRET || '',
+//     scopes: process.env.SHOPIFY_SCOPES
+//       ? process.env.SHOPIFY_SCOPES.split(',')
+//       : [],
+//     hostScheme: 'http',
+//     hostName: `localhost:${PORT}`,
+//   },
+//   auth: {
+//     path: '/api/auth',
+//     callbackPath: '/api/auth/callback',
+//   },
+//   webhooks: {
+//     path: '/api/webhooks',
+//   },
+// });
 
 
 let shopifySession: any
@@ -133,14 +133,14 @@ io.on('connection', (socket: AuthenticatedSocket) => {
   console.log('A client  connected: ', socket.id);
 
   // Listen for event to start Shopify OAuth
-  socket.on('startShopifyAuth', () => {
-    console.log('Starting Shopify OAuth process');
+  // socket.on('startShopifyAuth', () => {
+  //   console.log('Starting Shopify OAuth process');
 
-    // Emit an event to the client with the Shopify auth URL
-    socket.emit('redirectToShopify', {
-      url: `http://localhost:3000${shopify.config.auth.path}?shop=${process.env.SHOP_NAME}`, // This will be '/api/auth'
-    });
-  });
+  //   // Emit an event to the client with the Shopify auth URL
+  //   socket.emit('redirectToShopify', {
+  //     url: `http://localhost:3000${shopify.config.auth.path}?shop=${process.env.SHOP_NAME}`, // This will be '/api/auth'
+  //   });
+  // });
 
   socket.on('pingServer', () => {
     console.log('Ping received from client');
@@ -772,80 +772,80 @@ app.use(
 );
 
 // Shopify OAuth routes
-app.get(
-  shopify.config.auth.path,
-  shopify.auth.begin()
-);
+// app.get(
+//   shopify.config.auth.path,
+//   shopify.auth.begin()
+// );
 
 
-app.get(
-  shopify.config.auth.callbackPath,
-  shopify.auth.callback(),
-  async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
-    try {
-      const session = res.locals.shopify.session;
-      console.log(
-        'Authenticated session:',
-        session
-      );
+// app.get(
+//   shopify.config.auth.callbackPath,
+//   shopify.auth.callback(),
+//   async (
+//     req: Request,
+//     res: Response,
+//     next: NextFunction
+//   ) => {
+//     try {
+//       const session = res.locals.shopify.session;
+//       console.log(
+//         'Authenticated session:',
+//         session
+//       );
 
-      // await createProductWebhook(session);
-      console.log(
-        'Product webhook created and registered'
-      );
-      const existingSession =
-        await Session.findOne({ id: session.id });
+//       // await createProductWebhook(session);
+//       console.log(
+//         'Product webhook created and registered'
+//       );
+//       const existingSession =
+//         await Session.findOne({ id: session.id });
 
-      if (existingSession) {
-        await Session.deleteOne({
-          id: session.id,
-        });
-        console.log(
-          'Existing session deleted from MongoDB'
-        );
-      }
-      shopifySession = session; // Save the session globally for use in Socket.IO requests
+//       if (existingSession) {
+//         await Session.deleteOne({
+//           id: session.id,
+//         });
+//         console.log(
+//           'Existing session deleted from MongoDB'
+//         );
+//       }
+//       shopifySession = session; // Save the session globally for use in Socket.IO requests
 
-      const host = req.query.host as string;
+//       const host = req.query.host as string;
 
-      // Store the session
+//       // Store the session
 
-      const sessionData = new Session({
-        id: session.id,
-        shop: session.shop,
-        state: session.state,
-        isOnline: session.isOnline,
-        scope: session.scope,
-        expires: session.expires,
-        accessToken: session.accessToken,
-        onlineAccessInfo:
-          session.onlineAccessInfo,
-      });
+//       const sessionData = new Session({
+//         id: session.id,
+//         shop: session.shop,
+//         state: session.state,
+//         isOnline: session.isOnline,
+//         scope: session.scope,
+//         expires: session.expires,
+//         accessToken: session.accessToken,
+//         onlineAccessInfo:
+//           session.onlineAccessInfo,
+//       });
 
-      await sessionData.save();
-      console.log('Session stored successfully');
-      console.log(
-        `Index.ts storing the session fetched from the callback ${session}`
-      );
-      // Redirect back to the client
-      // res.redirect(
-      //   `/?shop=${session.shop}&host=${host}`
-      // );
-    } catch (error) {
-      console.error(
-        'Error in the authentication callback:',
-        error
-      );
-      next(error);
-    }
-  }
-);
+//       await sessionData.save();
+//       console.log('Session stored successfully');
+//       console.log(
+//         `Index.ts storing the session fetched from the callback ${session}`
+//       );
+//       // Redirect back to the client
+//       // res.redirect(
+//       //   `/?shop=${session.shop}&host=${host}`
+//       // );
+//     } catch (error) {
+//       console.error(
+//         'Error in the authentication callback:',
+//         error
+//       );
+//       next(error);
+//     }
+//   }
+// );
 
-// // Express route to fetch collections (use if needed directly via HTTP)
+// Express route to fetch collections (use if needed directly via HTTP)
 app.get(
   '/api/collects',
   async (req: Request, res: Response) => {

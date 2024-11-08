@@ -1,4 +1,4 @@
-import ChatThread from '../models/userChatThread';
+import ChatThread from '../models/userChatThread.js';
 import mongoose from 'mongoose';
 
 
