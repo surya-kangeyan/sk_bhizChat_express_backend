@@ -9,6 +9,11 @@ import express, {
   NextFunction,
 } from 'express';
 
+import SocketIOFileUpload from 'socket.io-file';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
 import  {queryAndGenerateResponse}  from './socketHandlers/queryAndGenerateRagReposne.js';
 
 import { Pinecone } from '@pinecone-database/pinecone';
@@ -19,6 +24,7 @@ import { Server, Socket } from 'socket.io';
 import { createServer } from 'http';
 import mongoose from 'mongoose';
 import Session from './models/session.js';
+import File from './models/fileUpload.js';
 import crypto from 'crypto';
 import OpenAI from 'openai';
 import ChatThread from './models/userChatThread.js'; // Ensure this import is correct
@@ -45,9 +51,17 @@ if (!MONGODB_URI) {
 
 const app = express();
 const server = createServer(app);
-
-
 const url = process.env.MONGODB_URI;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Set the upload directory path
+const uploadDir = path.join(__dirname, 'uploads'); // Adjust if 'uploads' is directly in the project root
+
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
 export const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -131,6 +145,19 @@ interface AuthenticatedSocket extends Socket {
 // Handling Shopify OAuth initiation from Socket.IO
 io.on('connection', (socket: AuthenticatedSocket) => {
   console.log('A client  connected: ', socket.id);
+  
+    const uploader = new SocketIOFileUpload(
+      socket as any,
+      {
+        uploadDir: uploadDir,
+        accepts: [
+          'application/pdf',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ], // Only accept PDF and DOCX
+        maxFileSize: 30 * 1024 * 1024, // 10 MB
+        chunkSize: 1024 * 1024, // 1 MB
+      }
+    );
 
   // Listen for event to start Shopify OAuth
   // socket.on('startShopifyAuth', () => {
@@ -732,6 +759,104 @@ io.on('connection', (socket: AuthenticatedSocket) => {
 
 
 
+
+// Listen for a custom event for document upload
+socket.on('documentUpload', async (data) => {
+  const { shopName, fileName, fileData } = data;
+
+  if (!shopName || !fileName || !fileData) {
+    socket.emit('uploadError', {
+      success: false,
+      message:
+        'Shop name, file name, and file data are required.',
+    });
+    return;
+  }
+
+  console.log(
+    `Starting document upload for shop: ${shopName}`
+  );
+
+  try {
+    // Create a new file document with the file data
+    const newFile = new File({
+      shopName,
+      fileName,
+      fileData: Buffer.from(fileData), // Convert file data to Buffer for MongoDB storage
+    });
+
+    // Save the file document to MongoDB
+    await newFile.save();
+
+    console.log(
+      `File uploaded for shop ${shopName} and stored in MongoDB`
+    );
+    socket.emit('uploadSuccess', {
+      success: true,
+      message: `Document uploaded successfully for shop ${shopName} and stored in MongoDB!`,
+      fileName,
+    });
+  } catch (err) {
+    console.error('File upload error:', err);
+    socket.emit('uploadError', {
+      success: false,
+      message:
+        'An error occurred while uploading the document to MongoDB.',
+    });
+  }
+});
+
+ socket.on('fetchDocuments', async (shopName) => {
+   if (!shopName) {
+     socket.emit('fetchError', {
+       success: false,
+       message:
+         'Shop name is required to fetch documents.',
+     });
+     return;
+   }
+
+   try {
+     // Find all documents with the specified shop name
+     const documents = await File.find({
+       shopName,
+     });
+
+     if (documents.length === 0) {
+       socket.emit('fetchSuccess', {
+         success: false,
+         message: `No documents found for shop ${shopName}.`,
+       });
+       return;
+     }
+
+     // Send back an array of document details
+     const documentDetails = documents.map(
+       (doc) => ({
+         fileName: doc.fileName,
+         fileData:
+           doc.fileData.toString('base64'), // Convert to base64 for transmission
+         uploadDate: doc.uploadDate,
+       })
+     );
+
+     socket.emit('fetchSuccess', {
+       success: true,
+       message: `Documents for shop ${shopName} fetched successfully!`,
+       documents: documentDetails,
+     });
+   } catch (err) {
+     console.error(
+       'Error fetching documents:',
+       err
+     );
+     socket.emit('fetchError', {
+       success: false,
+       message:
+         'An error occurred while fetching documents.',
+     });
+   }
+ });
   // Middleware to check session expiration before processing any event
   socket.use((packet, next) => {
     if (socket.userId && socket.lastActivity) {

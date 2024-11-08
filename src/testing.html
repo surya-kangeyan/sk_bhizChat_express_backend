@@ -8,7 +8,6 @@
   </head>
   <body>
     <h2>Shopify Session and OpenAI API Testing</h2>
-
     <button id="store-session">Store Session</button>
 
     <h2>Create User</h2>
@@ -17,18 +16,30 @@
     <h2>OpenAI API Testing</h2>
     <input type="text" id="openai-prompt" placeholder="Enter your prompt" />
     <button id="send-prompt">Send Prompt</button>
+
     <h2>Fetch Conversations</h2>
     <button id="fetch-conversations">Fetch Conversations</button>
+
     <h2>Fetch Metrics</h2>
     <button id="fetch-metrics">Fetch Metrics</button>
 
-<h2>Test Authentication</h2>
-<button id="test-authenticate">Test Authenticate</button>
+    <h2>Test Authentication</h2>
+    <button id="test-authenticate">Test Authenticate</button>
 
-
-     <h2>Fetch User by Email</h2>
+    <h2>Fetch User by Email</h2>
     <input type="email" id="user-email" placeholder="Enter user email" />
     <button id="fetch-user">Fetch User Details</button>
+
+    <h2>File Upload</h2>
+    <input type="text" id="shop-name" placeholder="Enter shop name" />
+    <input type="file" id="file-upload" />
+    <button id="upload-file">Upload File</button>
+
+     <h2>Fetch Documents by Shop Name</h2>
+    <input type="text" id="fetch-shop-name" placeholder="Enter shop name to fetch documents" />
+    <button id="fetch-documents">Fetch Documents</button>
+
+    <div id="document-output"></div> <!-- For displaying fetched document details -->
 
     <div id="output"></div> <!-- For displaying messages -->
 
@@ -53,99 +64,6 @@
         logMessage('Connection Error: ' + error);
       });
 
-      // Create Complete Dummy User Button
-      document.getElementById('create-user').addEventListener('click', () => {
-        const dummyUser = {
-          userId: '64cae7843f3d2e4f1f3d7b55', // Example ObjectId
-          firstName: 'John',
-          lastName: 'Doe',
-          email: 'john.doe@example.com',
-          phoneNumber: '1234567890',
-          address: {
-            street: '123 Main St',
-            city: 'Anytown',
-            state: 'CA',
-            postalCode: '12345',
-            country: 'USA',
-          },
-          pastOrders: [
-            {
-              orderId: '64cae7843f3d2e4f1f3d7b57', // Example ObjectId
-              totalAmount: 199.99,
-              orderStatus: 'Completed',
-              createdAt: new Date('2023-10-20T14:48:00'),
-              updatedAt: new Date('2023-10-21T10:30:00'),
-            },
-          ],
-          favorites: [
-            {
-              productId: 101,
-              title: 'Sample Product',
-              price: 49.99,
-            },
-          ],
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-
-        logMessage('Creating user: ' + JSON.stringify(dummyUser));
-        socket.emit('createUser', dummyUser);
-
-        socket.on('userCreated', (response) => {
-          if (response.success) {
-            logMessage('User created successfully with ID: ' + response.userId);
-          } else {
-            logMessage('User creation failed: ' + response.error);
-          }
-        });
-      });
-  
-      document.getElementById('test-authenticate').addEventListener('click', () => {
-      const dummyAuthData = {
-    userId: '95cae7843f3d2e4f1f3d7b56', // Example ObjectId
-    email: 'john1.doe@example.com',
-    // Add any other fields you want to include for authentication
-  };
-  
-  logMessage('Testing authentication with data: ' + JSON.stringify(dummyAuthData));
-  socket.emit('authenticate', dummyAuthData);
-});
-
-// Listen for authentication response
-socket.on('authenticated', (response) => {
-  if (response.success) {
-    logMessage('Authentication successful');
-  } else {
-    logMessage('Authentication failed: ' + response.error);
-  }
-});
-
-socket.on('sessionExpired', () => {
-  logMessage('Session expired. Reloading page...');
-  clearSessionData();
-  setTimeout(() => {
-    window.location.reload();
-  }, 2000);
-});
-
-       document.getElementById('fetch-user').addEventListener('click', () => {
-        const email = document.getElementById('user-email').value.trim();
-        if (!email) {
-          logMessage('Please enter a valid email address.');
-          return;
-        }
-
-        logMessage('Fetching user details for: ' + email);
-        socket.emit('getUserByEmail', email);
-
-        socket.on('userDetails', (response) => {
-          if (response.success) {
-            logMessage('User Details: ' + JSON.stringify(response.user));
-          } else {
-            logMessage('Error: ' + (response.message || response.error));
-          }
-        });
-      });
       // Store Session Button
       document.getElementById('store-session').addEventListener('click', () => {
         logMessage('Checking if server is alive...');
@@ -193,92 +111,207 @@ socket.on('sessionExpired', () => {
         });
       });
 
+      // Create User Button
+      document.getElementById('create-user').addEventListener('click', () => {
+        const dummyUser = {
+          userId: '64cae7843f3d2e4f1f3d7b55',
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          phoneNumber: '1234567890',
+          address: {
+            street: '123 Main St',
+            city: 'Anytown',
+            state: 'CA',
+            postalCode: '12345',
+            country: 'USA',
+          },
+          pastOrders: [
+            {
+              orderId: '64cae7843f3d2e4f1f3d7b57',
+              totalAmount: 199.99,
+              orderStatus: 'Completed',
+              createdAt: new Date('2023-10-20T14:48:00'),
+              updatedAt: new Date('2023-10-21T10:30:00'),
+            },
+          ],
+          favorites: [
+            {
+              productId: 101,
+              title: 'Sample Product',
+              price: 49.99,
+            },
+          ],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        logMessage('Creating user: ' + JSON.stringify(dummyUser));
+        socket.emit('createUser', dummyUser);
+
+        socket.on('userCreated', (response) => {
+          if (response.success) {
+            logMessage('User created successfully with ID: ' + response.userId);
+          } else {
+            logMessage('User creation failed: ' + response.error);
+          }
+        });
+      });
+
+      // Test Authentication Button
+      document.getElementById('test-authenticate').addEventListener('click', () => {
+        const dummyAuthData = {
+          userId: '95cae7843f3d2e4f1f3d7b56',
+          email: 'john1.doe@example.com',
+        };
+        logMessage('Testing authentication with data: ' + JSON.stringify(dummyAuthData));
+        socket.emit('authenticate', dummyAuthData);
+      });
+
+      // Fetch User by Email Button
+      document.getElementById('fetch-user').addEventListener('click', () => {
+        const email = document.getElementById('user-email').value.trim();
+        if (!email) {
+          logMessage('Please enter a valid email address.');
+          return;
+        }
+        logMessage('Fetching user details for: ' + email);
+        socket.emit('getUserByEmail', email);
+      });
+
       // Send OpenAI Prompt Button
       document.getElementById('send-prompt').addEventListener('click', () => {
         const prompt = document.getElementById('openai-prompt').value;
         logMessage('Sending prompt to OpenAI: ' + prompt);
-
         socket.emit('openaiPrompt', { prompt });
-
-        socket.on('openaiResponse', (data) => {
-          logMessage('OpenAI Response: ' + data.result);
-        });
-
-        socket.on('openaiError', (error) => {
-          logMessage('Error from OpenAI: ' + error);
-        });
       });
 
+      // Fetch Conversations Button
+      document.getElementById('fetch-conversations').addEventListener('click', () => {
+        const userId = '671db06569ef6ff3df65823d';
+        logMessage('Fetching conversations for userId: ' + userId);
+        socket.emit('fetchConversations', userId);
+      });
+
+      // Fetch Metrics Button
       document.getElementById('fetch-metrics').addEventListener('click', () => {
         socket.emit('fetchMetrics');
-
-        socket.on('metrics', (data) => {
-          if (data.success) {
-            logMessage('Metrics fetched successfully: ' + JSON.stringify(data.metrics));
-          } else {
-            logMessage('Error fetching metrics: ' + data.error);
-          }
-        });
-
-        socket.on('error', (error) => {
-          logMessage('Error fetching metrics: ' + error);
-        });
       });
 
+      // File Upload Button
+      document.getElementById('upload-file').addEventListener('click', () => {
+        const shopName = document.getElementById('shop-name').value;
+        const fileInput = document.getElementById('file-upload');
+        const file = fileInput.files[0];
 
-      // Query Products Button
-      // document.getElementById('query-products').addEventListener('click', () => {
-      //   const productQuery = document.getElementById('product-query').value;
-      //   logMessage('Querying products: ' + productQuery);
+        if (!shopName || !file) {
+          logMessage('Please provide both shop name and file to upload.');
+          return;
+        }
 
-      //   socket.emit('queryProducts', {productQuery });
+        const fileReader = new FileReader();
+        fileReader.readAsArrayBuffer(file);
+        fileReader.onload = (event) => {
+          const fileData = event.target.result;
+          logMessage(`Uploading file ${file.name} for shop ${shopName}`);
+          socket.emit('documentUpload', {
+            shopName,
+            fileName: file.name,
+            fileData,
+          });
+        };
+      });
 
-      //   socket.on('queryResults', (data) => {
-      //     logMessage('Query Results: ' + data.message);
-      //   });
+       function logMessage(message, elementId = 'document-output') {
+        const output = document.getElementById(elementId);
+        const newMessage = document.createElement('p');
+        newMessage.textContent = message;
+        output.appendChild(newMessage);
+      }
 
-      //   socket.on('error', (error) => {
-      //     logMessage('Error querying products: ' + error);
-      //   });
-      // });
+      // Fetch documents by shop name
+      document.getElementById('fetch-documents').addEventListener('click', () => {
+        const shopName = document.getElementById('fetch-shop-name').value.trim();
 
-      // Add Fetch Conversations Button event listener
-      document.getElementById('fetch-conversations').addEventListener('click', () => {
-        const userId = '671db06569ef6ff3df65823d'; 
-        logMessage('Fetching conversations for userId: ' + userId);
-        
-        socket.emit('fetchConversations', userId); 
-        
-        socket.on('conversationsData', (data) => {
-          if (data.success) {
-            logMessage('Conversations fetched successfully.');
-            data.conversations.forEach(conversation => {
-              // logMessage(`Conversation ID brotha: ${conversation._id}`);
-              logMessage(`first user message!!! ${data.conversations[0].messages[0].userMessage}`)
-              conversation.messages.forEach(message => {
-                logMessage(`User: ${message.userInput.content} at ${message.userInput.timestamp}`);
-                
-                const llmOutput = JSON.parse(message.llmOutput.content);
-                logMessage(`AI Response: ${llmOutput.message}`);
-                
-                // Log recommendations if they exist
-                if (llmOutput.recommendations && Array.isArray(llmOutput.recommendations)) {
-                  llmOutput.recommendations.forEach(recommendation => {
-                    logMessage(`Recommendation: ${recommendation.title} - ${recommendation.description}`);
-                  });
-                }
-              });
+        if (!shopName) {
+          logMessage('Please enter a shop name.');
+          return;
+        }
+
+        // Clear previous output
+        document.getElementById('document-output').innerHTML = '';
+
+        // Emit fetchDocuments event
+        socket.emit('fetchDocuments', shopName);
+      });
+
+      // Handle successful document fetch
+      socket.on('fetchSuccess', (data) => {
+        if (data.success) {
+          logMessage(data.message);
+
+          data.documents.forEach((doc, index) => {
+            logMessage(`Document ${index + 1}:`);
+            logMessage(`File Name: ${doc.fileName}`);
+            logMessage(`Upload Date: ${new Date(doc.uploadDate).toLocaleString()}`);
+            logMessage(`File Data (Base64): ${doc.fileData.substring(0, 100)}...`); // Show part of the file data
+
+            // Optional: create a download link for each file
+            const link = document.createElement('a');
+            link.href = `data:application/octet-stream;base64,${doc.fileData}`;
+            link.download = doc.fileName;
+            link.textContent = `Download ${doc.fileName}`;
+            document.getElementById('document-output').appendChild(link);
+          });
+        } else {
+          logMessage(data.message);
+        }
+      });
+
+      // Handle errors in fetching documents
+      socket.on('fetchError', (error) => {
+        logMessage('Error fetching documents: ' + error.message);
+      });
+      // Handle responses from server
+      socket.on('userDetails', (response) => {
+        logMessage('User Details: ' + JSON.stringify(response.user));
+      });
+
+      socket.on('openaiResponse', (data) => {
+        logMessage('OpenAI Response: ' + data.result);
+      });
+
+      socket.on('conversationsData', (data) => {
+        if (data.success) {
+          data.conversations.forEach((conversation) => {
+            conversation.messages.forEach((message) => {
+              logMessage(`User: ${message.userMessage}`);
+              logMessage(`AI Response: ${message.aiResponse}`);
             });
-          } else {
-            logMessage('No conversations found.');
-          }
-        });
-
-        socket.on('error', (error) => {
-          logMessage('Error fetching conversations: ' + error);
-        });
+          });
+        }
       });
-      //////
+
+      socket.on('metrics', (data) => {
+        logMessage('Metrics: ' + JSON.stringify(data.metrics));
+      });
+
+      socket.on('uploadSuccess', (data) => {
+        logMessage('File uploaded successfully: ' + data.message);
+      });
+
+      socket.on('uploadError', (error) => {
+        logMessage('File upload failed: ' + error.message);
+      });
+
+      socket.on('authenticated', (response) => {
+        if (response.success) {
+          logMessage('Authentication successful');
+        } else {
+          logMessage('Authentication failed: ' + response.error);
+        }
+      });
+
       socket.on('disconnect', () => {
         logMessage('Disconnected from the server.');
       });
