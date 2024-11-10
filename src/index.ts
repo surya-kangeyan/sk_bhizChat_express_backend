@@ -115,26 +115,26 @@ mongoose.connect(MONGODB_URI)
 
 // Initialize Shopify app
 
-// const shopify = shopifyApp({
-//   useOnlineTokens: true,
-//   api: {
-//     apiKey: process.env.SHOPIFY_API_KEY || '',
-//     apiSecretKey:
-//       process.env.SHOPIFY_API_SECRET || '',
-//     scopes: process.env.SHOPIFY_SCOPES
-//       ? process.env.SHOPIFY_SCOPES.split(',')
-//       : [],
-//     hostScheme: 'http',
-//     hostName: `localhost:${PORT}`,
-//   },
-//   auth: {
-//     path: '/api/auth',
-//     callbackPath: '/api/auth/callback',
-//   },
-//   webhooks: {
-//     path: '/api/webhooks',
-//   },
-// });
+const shopify = shopifyApp({
+  useOnlineTokens: true,
+  api: {
+    apiKey: process.env.SHOPIFY_API_KEY || '',
+    apiSecretKey:
+      process.env.SHOPIFY_API_SECRET || '',
+    scopes: process.env.SHOPIFY_SCOPES
+      ? process.env.SHOPIFY_SCOPES.split(',')
+      : [],
+    hostScheme: 'http',
+    hostName: `localhost:${PORT}`,
+  },
+  auth: {
+    path: '/api/auth',
+    callbackPath: '/api/auth/callback',
+  },
+  webhooks: {
+    path: '/api/webhooks',
+  },
+});
 
 
 let shopifySession: any
@@ -142,6 +142,19 @@ interface AuthenticatedSocket extends Socket {
   userId?: string;
   lastActivity?: number;
 }
+
+const generateObjectIdFromString = (
+  str: string
+): mongoose.Types.ObjectId => {
+  // Hash the string and use the first 24 characters
+  const hexString = crypto
+    .createHash('md5')
+    .update(str)
+    .digest('hex')
+    .slice(0, 24);
+  return new mongoose.Types.ObjectId(hexString);
+};
+
 // Handling Shopify OAuth initiation from Socket.IO
 io.on('connection', (socket: AuthenticatedSocket) => {
   console.log('A client  connected: ', socket.id);
@@ -176,76 +189,77 @@ io.on('connection', (socket: AuthenticatedSocket) => {
     });
   });
 
-  socket.on(
-    'storeSession',
-    async (sessionData) => {
-      try {
-        console.log(
-          'Received session data:',
-          sessionData
-        );
-        // Validate session data
-        if (
-          !sessionData ||
-          !sessionData.id ||
-          !sessionData.shop
-        ) {
-          socket.emit(
-            'error',
-            'Invalid session data'
-          );
-          return;
-        }
+ socket.on(
+   'storeSession',
+   async (sessionData) => {
+     try {
+       console.log(
+         'Received session data:',
+         sessionData
+       );
 
-        // Check if session already exists
-        const existingSession =
-          await Session.findOne({
-            id: sessionData.id,
-          });
-        if (existingSession) {
-          // If session exists, delete it first
-          await Session.deleteOne({
-            id: sessionData.id,
-          });
-          console.log(
-            'Existing session deleted from MongoDB'
-          );
-        }
+       // Validate session data
+       if (
+         !sessionData ||
+         !sessionData.id ||
+         !sessionData.shop
+       ) {
+         socket.emit(
+           'error',
+           'Invalid session data'
+         );
+         return;
+       }
 
-        // Create a new session document
-        const newSession = new Session({
-          id: sessionData.id,
-          shop: sessionData.shop,
-          state: sessionData.state,
-          isOnline: sessionData.isOnline,
-          scope: sessionData.scope,
-          expires: sessionData.expires,
-          accessToken: sessionData.accessToken,
-          onlineAccessInfo:
-            sessionData.onlineAccessInfo,
-        });
+       // Synchronous check for an existing session and delete if found
+       const existingSession =
+         await Session.findOne({
+           id: sessionData.id,
+         });
+       if (existingSession) {
+         await Session.deleteOne({
+           id: sessionData.id,
+         });
+         console.log(
+           'Existing session deleted from MongoDB'
+         );
+       }
 
-        // Save the session to MongoDB
-        await newSession.save();
-        shopifySession = newSession;
-        console.log(
-          'Session stored successfully'
-        );
-        socket.emit('sessionStored', {
-          message: 'Session stored successfully',
-        });
-      } catch (error) {
-        console.error(
-          'Error storing session:',
-          error
-        );
-        socket.emit(
-          'error',
-          'Failed to store session'
-        );
-      }
-    }
-  );
+       // Create a new session document with the sessionData
+       const newSession = new Session({
+         id: sessionData.id,
+         shop: sessionData.shop,
+         state: sessionData.state,
+         isOnline: sessionData.isOnline,
+         scope: sessionData.scope,
+         expires: sessionData.expires,
+         accessToken: sessionData.accessToken,
+         onlineAccessInfo:
+           sessionData.onlineAccessInfo,
+       });
+
+       // Save the new session to MongoDB synchronously
+       await newSession.save();
+       shopifySession = newSession; // Update the global session variable if needed
+       console.log('Session stored successfully');
+
+       // Send success message to the client
+       socket.emit('sessionStored', {
+         message: 'Session stored successfully',
+       });
+     } catch (error) {
+       console.error(
+         'Error storing session:',
+         error
+       );
+       socket.emit(
+         'error',
+         'Failed to store session'
+       );
+     }
+   }
+ );
+
 
   socket.on('createUser', async (userData) => {
     try {
@@ -293,12 +307,13 @@ io.on('connection', (socket: AuthenticatedSocket) => {
   socket.on('authenticate', async (userData) => {
     try {
       // Verify user data (you might want to add more validation)
-      if (!userData || !userData.userId) {
+      if (!userData || !userData.id) {
         throw new Error('Invalid user data');
       }
+      console.log(`index.ts authenticate route called with user data ${userData}`)
 
       // Store userId in the socket for future use
-      socket.userId = userData.userId;
+      socket.userId = userData.id;
       socket.lastActivity = Date.now();
       console.log(
         'User authenticated:',
@@ -522,8 +537,12 @@ io.on('connection', (socket: AuthenticatedSocket) => {
         error
       );
     }
+    console.log(`index.ts storing parsed response for user id ${socket.userId}`)
+const userIdAsObjectId =
+  generateObjectIdFromString(socket.userId!);
+
     await saveChatThread(
-      new ObjectId(socket.userId),
+      new ObjectId(userIdAsObjectId),
       'Shopify shop ID',
       data.prompt,
       fullGptResponse
@@ -599,7 +618,10 @@ io.on('connection', (socket: AuthenticatedSocket) => {
   socket.on(
     'fetchConversations',
     async (userId) => {
-      userId = socket.userId;
+    
+      userId = generateObjectIdFromString(
+        socket.userId!
+      );
       console.log(
         `Fetching conversations for userId: ${userId}`
       );
@@ -897,78 +919,78 @@ app.use(
 );
 
 // Shopify OAuth routes
-// app.get(
-//   shopify.config.auth.path,
-//   shopify.auth.begin()
-// );
+app.get(
+  shopify.config.auth.path,
+  shopify.auth.begin()
+);
 
 
-// app.get(
-//   shopify.config.auth.callbackPath,
-//   shopify.auth.callback(),
-//   async (
-//     req: Request,
-//     res: Response,
-//     next: NextFunction
-//   ) => {
-//     try {
-//       const session = res.locals.shopify.session;
-//       console.log(
-//         'Authenticated session:',
-//         session
-//       );
+app.get(
+  shopify.config.auth.callbackPath,
+  shopify.auth.callback(),
+  async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const session = res.locals.shopify.session;
+      console.log(
+        'Authenticated session:',
+        session
+      );
 
-//       // await createProductWebhook(session);
-//       console.log(
-//         'Product webhook created and registered'
-//       );
-//       const existingSession =
-//         await Session.findOne({ id: session.id });
+      // await createProductWebhook(session);
+      console.log(
+        'Product webhook created and registered'
+      );
+      const existingSession =
+        await Session.findOne({ id: session.id });
 
-//       if (existingSession) {
-//         await Session.deleteOne({
-//           id: session.id,
-//         });
-//         console.log(
-//           'Existing session deleted from MongoDB'
-//         );
-//       }
-//       shopifySession = session; // Save the session globally for use in Socket.IO requests
+      if (existingSession) {
+        await Session.deleteOne({
+          id: session.id,
+        });
+        console.log(
+          'Existing session deleted from MongoDB'
+        );
+      }
+      shopifySession = session; // Save the session globally for use in Socket.IO requests
 
-//       const host = req.query.host as string;
+      const host = req.query.host as string;
 
-//       // Store the session
+      // Store the session
 
-//       const sessionData = new Session({
-//         id: session.id,
-//         shop: session.shop,
-//         state: session.state,
-//         isOnline: session.isOnline,
-//         scope: session.scope,
-//         expires: session.expires,
-//         accessToken: session.accessToken,
-//         onlineAccessInfo:
-//           session.onlineAccessInfo,
-//       });
+      const sessionData = new Session({
+        id: session.id,
+        shop: session.shop,
+        state: session.state,
+        isOnline: session.isOnline,
+        scope: session.scope,
+        expires: session.expires,
+        accessToken: session.accessToken,
+        onlineAccessInfo:
+          session.onlineAccessInfo,
+      });
 
-//       await sessionData.save();
-//       console.log('Session stored successfully');
-//       console.log(
-//         `Index.ts storing the session fetched from the callback ${session}`
-//       );
-//       // Redirect back to the client
-//       // res.redirect(
-//       //   `/?shop=${session.shop}&host=${host}`
-//       // );
-//     } catch (error) {
-//       console.error(
-//         'Error in the authentication callback:',
-//         error
-//       );
-//       next(error);
-//     }
-//   }
-// );
+      await sessionData.save();
+      console.log('Session stored successfully');
+      console.log(
+        `Index.ts storing the session fetched from the callback ${session}`
+      );
+      // Redirect back to the client
+      res.redirect(
+        `/?shop=${session.shop}&host=${host}`
+      );
+    } catch (error) {
+      console.error(
+        'Error in the authentication callback:',
+        error
+      );
+      next(error);
+    }
+  }
+);
 
 // Express route to fetch collections (use if needed directly via HTTP)
 app.get(

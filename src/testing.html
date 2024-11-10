@@ -74,25 +74,27 @@
           logMessage('Storing session...');
 
           const dummySession = {
-            id: 'sk-test-store1.myshopify.com_75885969541',
-            shop: 'sk-test-store1.myshopify.com',
-            state: '706656270562885',
-            isOnline: true,
-            scope: 'write_orders,read_product_listings,write_products',
-            expires: '2024-10-26T17:42:46.787Z',
-            accessToken: 'shpua_67a19b6bec3c269193abc7df6cf7a6d5',
-            onlineAccessInfo: {
-              expires_in: 86399,
-              associated_user_scope: 'write_orders,read_product_listings,write_products',
-              associated_user: {
-                id: 75885969541,
-                first_name: 'surya',
-                last_name: 'kangeyan',
-                email: 'suryakangeyan4701@gmail.com',
-                account_owner: true,
-                locale: 'en',
-                collaborator: false,
-                email_verified: true,
+             id: 'sk-test-store1.myshopify.com_75885969541',
+  shop: 'sk-test-store1.myshopify.com',
+  state: '426816812313225',
+  isOnline: true,
+  scope: 'write_orders,read_product_listings,write_products',
+  expires: '2024-11-11T02:38:10.329Z',
+  accessToken: 'shpua_de624be9f1240ad1a89cbfd960613050',
+  onlineAccessInfo: {
+    expires_in: 86399,
+    associated_user_scope: 'write_orders,read_product_listings,write_products',
+    session: null,
+    account_number: null,
+    associated_user: {
+      id: 75885969541,
+      first_name: 'surya',
+      last_name: 'kangeyan',
+      email: 'suryakangeyan4701@gmail.com',
+      account_owner: true,
+      locale: 'en',
+      collaborator: false,
+      email_verified: true
               },
             },
           };
@@ -160,10 +162,33 @@
 
       // Test Authentication Button
       document.getElementById('test-authenticate').addEventListener('click', () => {
+      
         const dummyAuthData = {
-          userId: '95cae7843f3d2e4f1f3d7b56',
-          email: 'john1.doe@example.com',
-        };
+               id: 'sk-test-store1.myshopify.com_75885969541',
+  shop: 'sk-test-store1.myshopify.com',
+  state: '426816812313225',
+  isOnline: true,
+  scope: 'write_orders,read_product_listings,write_products',
+  expires: '2024-11-11T02:38:10.329Z',
+  accessToken: 'shpua_de624be9f1240ad1a89cbfd960613050',
+  onlineAccessInfo: {
+    expires_in: 86399,
+    associated_user_scope: 'write_orders,read_product_listings,write_products',
+    session: null,
+    account_number: null,
+    associated_user: {
+      id: 75885969541,
+      first_name: 'surya',
+      last_name: 'kangeyan',
+      email: 'suryakangeyan4701@gmail.com',
+      account_owner: true,
+      locale: 'en',
+      collaborator: false,
+      email_verified: true
+              },
+            },
+          };
+
         logMessage('Testing authentication with data: ' + JSON.stringify(dummyAuthData));
         socket.emit('authenticate', dummyAuthData);
       });
