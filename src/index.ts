@@ -30,7 +30,7 @@ import OpenAI from 'openai';
 import ChatThread from './models/userChatThread.js'; // Ensure this import is correct
 
 import { Chat } from 'openai/resources';
-import { saveChatThread } from './socketHandlers/saveChatThread.js';
+import { saveChatThread, saveStringChatThread } from './socketHandlers/saveChatThread.js';
 import { fetchMetrics } from './socketHandlers/metrics.js'
 
 import { ObjectId } from 'mongodb';
@@ -115,26 +115,26 @@ mongoose.connect(MONGODB_URI)
 
 // Initialize Shopify app
 
-// const shopify = shopifyApp({
-//   useOnlineTokens: true,
-//   api: {
-//     apiKey: process.env.SHOPIFY_API_KEY || '',
-//     apiSecretKey:
-//       process.env.SHOPIFY_API_SECRET || '',
-//     scopes: process.env.SHOPIFY_SCOPES
-//       ? process.env.SHOPIFY_SCOPES.split(',')
-//       : [],
-//     hostScheme: 'http',
-//     hostName: `localhost:${PORT}`,
-//   },
-//   auth: {
-//     path: '/api/auth',
-//     callbackPath: '/api/auth/callback',
-//   },
-//   webhooks: {
-//     path: '/api/webhooks',
-//   },
-// });
+const shopify = shopifyApp({
+  useOnlineTokens: true,
+  api: {
+    apiKey: process.env.SHOPIFY_API_KEY || '',
+    apiSecretKey:
+      process.env.SHOPIFY_API_SECRET || '',
+    scopes: process.env.SHOPIFY_SCOPES
+      ? process.env.SHOPIFY_SCOPES.split(',')
+      : [],
+    hostScheme: 'http',
+    hostName: `localhost:${PORT}`,
+  },
+  auth: {
+    path: '/api/auth',
+    callbackPath: '/api/auth/callback',
+  },
+  webhooks: {
+    path: '/api/webhooks',
+  },
+});
 
 
 let shopifySession: any
@@ -173,14 +173,14 @@ io.on('connection', (socket: AuthenticatedSocket) => {
     );
 
   // Listen for event to start Shopify OAuth
-  // socket.on('startShopifyAuth', () => {
-  //   console.log('Starting Shopify OAuth process');
+  socket.on('startShopifyAuth', () => {
+    console.log('Starting Shopify OAuth process');
 
-  //   // Emit an event to the client with the Shopify auth URL
-  //   socket.emit('redirectToShopify', {
-  //     url: `http://localhost:3000${shopify.config.auth.path}?shop=${process.env.SHOP_NAME}`, // This will be '/api/auth'
-  //   });
-  // });
+    // Emit an event to the client with the Shopify auth URL
+    socket.emit('redirectToShopify', {
+      url: `http://localhost:3000${shopify.config.auth.path}?shop=${process.env.SHOP_NAME}`, // This will be '/api/auth'
+    });
+  });
 
   socket.on('pingServer', () => {
     console.log('Ping received from client');
@@ -538,16 +538,46 @@ io.on('connection', (socket: AuthenticatedSocket) => {
       );
     }
     console.log(`index.ts storing parsed response for user id ${socket.userId}`)
-const userIdAsObjectId =
-  generateObjectIdFromString(socket.userId!);
+    //console.log('what is socket:', socket)
+    try{
+    if (!data.userId){
+      console.log("WHYYYYYY")
+    }
+    const userIdAsObjectId =
+    generateObjectIdFromString(data.userId!);
+    //test
+    console.log("BEFORE PARSIN:",fullGptResponse)
 
-    await saveChatThread(
-      new ObjectId(userIdAsObjectId),
-      'Shopify shop ID',
-      data.prompt,
-      fullGptResponse
-    );    
+    console.log("WHAT TYPE:", typeof fullGptResponse)
+    
+    // console.log("FULL RESPOMSE BETA: ", parsedResponse)
+    console.log("NEW ID", new ObjectId(userIdAsObjectId))
+    console.log("DATA.prompttttt", data.prompt)
+    if (typeof fullGptResponse === 'string') {
+      await saveStringChatThread(
+        new ObjectId(userIdAsObjectId),
+        'Shopify shop ID',
+        data.prompt,
+        fullGptResponse
+    ) 
+    }
+    else{
+      const parsedResponse = JSON.parse(fullGptResponse)
+      await saveChatThread(
+        new ObjectId(userIdAsObjectId),
+        'Shopify shop ID',
+        data.prompt,
+        fullGptResponse
+    );   
 
+    }
+     
+    }
+    catch (error) {
+      console.log("ERROR SAVING:",error)
+    }
+
+    
     const metrics = await Metrics.findOne()
 
     if (metrics) {
@@ -555,7 +585,7 @@ const userIdAsObjectId =
       metrics.totalRecommendations += finalRecommendationCount;
       await metrics.save();
 
-      console.log("WE UPDATED THE METRICS!!!!!!", metrics)
+      // console.log("WE UPDATED THE METRICS!!!!!!", metrics)
     } else {
       const newMetrics = new Metrics({
           totalUsers: 1,
@@ -618,24 +648,34 @@ const userIdAsObjectId =
   socket.on(
     'fetchConversations',
     async (userId) => {
-    
+
+      console.log("STEP 1",typeof userId)
+
+      if (!userId || typeof userId !== 'string') {
+        socket.emit("No valid user ID")
+      }
+      const finalUserId = userId
       userId = generateObjectIdFromString(
-        socket.userId!
+        finalUserId
       );
-      console.log(
-        `Fetching conversations for userId: ${userId}`
-      );
+
+      ///TESTING
+      // userId = new ObjectId('672b0012befa3bf47324ddb8')
+      // console.log(
+      //   `Fetching conversations for userId: ${userId}`
+      // );
       try {
         // Validate userId
         if (!userId) {
           socket.emit('error', 'Invalid userId');
+          console.log("INVALID USER ID BROOOOO")
           return;
         }
         const conversations =
           await ChatThread.find({
             userId: userId,
           });
-        // console.log("AFTER FIND ONE: ",conversations)
+        console.log("AFTER FIND ONE: ",conversations)
         // Sort messages by timestamp for each conversation
         const sortedConversations =
           conversations.map((conversation) => {

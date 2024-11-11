@@ -207,13 +207,14 @@
       // Send OpenAI Prompt Button
       document.getElementById('send-prompt').addEventListener('click', () => {
         const prompt = document.getElementById('openai-prompt').value;
+        const userId = '672b0012befa3bf47324ddb8';
         logMessage('Sending prompt to OpenAI: ' + prompt);
-        socket.emit('openaiPrompt', { prompt });
+        socket.emit('openaiPrompt', { prompt: prompt, userId: userId });
       });
 
       // Fetch Conversations Button
       document.getElementById('fetch-conversations').addEventListener('click', () => {
-        const userId = '671db06569ef6ff3df65823d';
+        const userId = '672b0012befa3bf47324ddb8';
         logMessage('Fetching conversations for userId: ' + userId);
         socket.emit('fetchConversations', userId);
       });
