@@ -155,6 +155,15 @@ const generateObjectIdFromString = (
   return new mongoose.Types.ObjectId(hexString);
 };
 
+const isJSON = (gptResponse: string) => {
+  try {
+    JSON.parse(gptResponse);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 // Handling Shopify OAuth initiation from Socket.IO
 io.on('connection', (socket: AuthenticatedSocket) => {
   console.log('A client  connected: ', socket.id);
@@ -515,69 +524,64 @@ io.on('connection', (socket: AuthenticatedSocket) => {
         });
     }
     let finalRecommendationCount = 0
-    try {
-      const parsedResponse = JSON.parse(
-        fullGptResponse
-      );
-      // Extract `recommendation_count`
-      const recommendationCount =
-        parsedResponse.recommendation_count;
-      console.log(
-        `Recommendation count!!!!: ${recommendationCount}`
-      );
-      finalRecommendationCount =  recommendationCount
-      // You may also want to store the entire parsed response for further use
-      console.log(
-        'Full Parsed Response:',
-        parsedResponse
-      );
-    } catch (error) {
-      console.error(
-        'Error parsing GPT response:',
-        error
-      );
+    if (isJSON(fullGptResponse)) {
+      try {
+        const parsedResponse = JSON.parse(
+          fullGptResponse
+        );
+        // Extract `recommendation_count`
+        const recommendationCount =
+          parsedResponse.recommendation_count;
+        console.log(
+          `Recommendation count!!!!: ${recommendationCount}`
+        );
+        finalRecommendationCount =  recommendationCount
+        // You may also want to store the entire parsed response for further use
+        // console.log(
+        //   'Full Parsed Response:',
+        //   parsedResponse
+        // );
+      } catch (error) {
+        console.error(
+          'Error parsing GPT response:',
+          error
+        );
+      }
     }
+      
     console.log(`index.ts storing parsed response for user id ${socket.userId}`)
     //console.log('what is socket:', socket)
     try{
-    if (!data.userId){
+    if (!socket.userId){
       console.log("WHYYYYYY")
     }
     const userIdAsObjectId =
-    generateObjectIdFromString(data.userId!);
+    generateObjectIdFromString(socket.userId!);
     //test
-    console.log("BEFORE PARSIN:",fullGptResponse)
-
-    console.log("WHAT TYPE:", typeof fullGptResponse)
-    
-    // console.log("FULL RESPOMSE BETA: ", parsedResponse)
+    // console.log("BEFORE PARSIN:",fullGptResponse)    
+    // console.log("FULL RESPOMSE: ", parsedResponse)
     console.log("NEW ID", new ObjectId(userIdAsObjectId))
-    console.log("DATA.prompttttt", data.prompt)
-    if (typeof fullGptResponse === 'string') {
-      await saveStringChatThread(
-        new ObjectId(userIdAsObjectId),
-        'Shopify shop ID',
-        data.prompt,
-        fullGptResponse
-    ) 
-    }
-    else{
-      const parsedResponse = JSON.parse(fullGptResponse)
+    console.log("DATA.prompt", data.prompt)
+    if (isJSON(fullGptResponse)) {
       await saveChatThread(
         new ObjectId(userIdAsObjectId),
         'Shopify shop ID',
         data.prompt,
         fullGptResponse
     );   
-
     }
-     
+    else{
+      await saveStringChatThread(
+        new ObjectId(userIdAsObjectId),
+        'Shopify shop ID',
+        data.prompt,
+        fullGptResponse
+    )       
+    }
     }
     catch (error) {
       console.log("ERROR SAVING:",error)
     }
-
-    
     const metrics = await Metrics.findOne()
 
     if (metrics) {
@@ -649,15 +653,6 @@ io.on('connection', (socket: AuthenticatedSocket) => {
     'fetchConversations',
     async (userId) => {
 
-      console.log("STEP 1",typeof userId)
-
-      if (!userId || typeof userId !== 'string') {
-        socket.emit("No valid user ID")
-      }
-      const finalUserId = userId
-      userId = generateObjectIdFromString(
-        finalUserId
-      );
 
       ///TESTING
       // userId = new ObjectId('672b0012befa3bf47324ddb8')
@@ -665,17 +660,25 @@ io.on('connection', (socket: AuthenticatedSocket) => {
       //   `Fetching conversations for userId: ${userId}`
       // );
       try {
+        if (!socket.userId || typeof socket.userId !== 'string') {
+          socket.emit("userIdError", { message: "No user ID found"})
+          console.log("NO USER ID GIVEN")
+          return;
+        }
+  
+        const userIdAsObjectId =
+          generateObjectIdFromString(socket.userId!);
+
         // Validate userId
-        if (!userId) {
-          socket.emit('error', 'Invalid userId');
-          console.log("INVALID USER ID BROOOOO")
+        if (!userIdAsObjectId) {
+          socket.emit('error', { message: "No valid user ID provided" });
+          console.log("INVALID USER ID")
           return;
         }
         const conversations =
           await ChatThread.find({
-            userId: userId,
+            userId: userIdAsObjectId,
           });
-        console.log("AFTER FIND ONE: ",conversations)
         // Sort messages by timestamp for each conversation
         const sortedConversations =
           conversations.map((conversation) => {
@@ -721,7 +724,7 @@ io.on('connection', (socket: AuthenticatedSocket) => {
         );
         socket.emit(
           'error',
-          'Failed to fetch conversations'
+          {"message": 'Failed to fetch conversations'}
         );
       }
     }
