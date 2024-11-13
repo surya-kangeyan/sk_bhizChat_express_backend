@@ -205,15 +205,17 @@
       // Send OpenAI Prompt Button
       document.getElementById('send-prompt').addEventListener('click', () => {
         const prompt = document.getElementById('openai-prompt').value;
+        const userId = '672b0012befa3bf47324ddb8';
         logMessage('Sending prompt to OpenAI: ' + prompt);
-        socket.emit('openaiPrompt', { prompt });
+        socket.emit('openaiPrompt', { prompt: prompt, userId: userId });
       });
 
       // Fetch Conversations Button
       document.getElementById('fetch-conversations').addEventListener('click', () => {
-        const userId = '671db06569ef6ff3df65823d';
+        const userId = 'sk-test-store1.myshopify.com_75885969541';
         logMessage('Fetching conversations for userId: ' + userId);
         socket.emit('fetchConversations', userId);
+        
       });
 
       // Fetch Metrics Button
@@ -314,6 +316,10 @@
           });
         }
       });
+
+      socket.on('userIdError', (data) => {
+          logMessage('Error: ' + data.message);
+        });
 
       socket.on('metrics', (data) => {
         logMessage('Metrics: ' + JSON.stringify(data.metrics));
