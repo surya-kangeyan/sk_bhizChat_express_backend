@@ -116,26 +116,26 @@ mongoose.connect(MONGODB_URI)
 
 // Initialize Shopify app
 
-const shopify = shopifyApp({
-  useOnlineTokens: true,
-  api: {
-    apiKey: process.env.SHOPIFY_API_KEY || '',
-    apiSecretKey:
-      process.env.SHOPIFY_API_SECRET || '',
-    scopes: process.env.SHOPIFY_SCOPES
-      ? process.env.SHOPIFY_SCOPES.split(',')
-      : [],
-    hostScheme: 'http',
-    hostName: `localhost:${PORT}`,
-  },
-  auth: {
-    path: '/api/auth',
-    callbackPath: '/api/auth/callback',
-  },
-  webhooks: {
-    path: '/api/webhooks',
-  },
-});
+// const shopify = shopifyApp({
+//   useOnlineTokens: true,
+//   api: {
+//     apiKey: process.env.SHOPIFY_API_KEY || '',
+//     apiSecretKey:
+//       process.env.SHOPIFY_API_SECRET || '',
+//     scopes: process.env.SHOPIFY_SCOPES
+//       ? process.env.SHOPIFY_SCOPES.split(',')
+//       : [],
+//     hostScheme: 'http',
+//     hostName: `localhost:${PORT}`,
+//   },
+//   auth: {
+//     path: '/api/auth',
+//     callbackPath: '/api/auth/callback',
+//   },
+//   webhooks: {
+//     path: '/api/webhooks',
+//   },
+// });
 
 
 let shopifySession: any
@@ -182,15 +182,15 @@ io.on('connection', (socket: AuthenticatedSocket) => {
       }
     );
 
-  // Listen for event to start Shopify OAuth
-  socket.on('startShopifyAuth', () => {
-    console.log('Starting Shopify OAuth process');
+  // // Listen for event to start Shopify OAuth
+  // socket.on('startShopifyAuth', () => {
+  //   console.log('Starting Shopify OAuth process');
 
-    // Emit an event to the client with the Shopify auth URL
-    socket.emit('redirectToShopify', {
-      url: `http://localhost:3000${shopify.config.auth.path}?shop=${process.env.SHOP_NAME}`, // This will be '/api/auth'
-    });
-  });
+  //   // Emit an event to the client with the Shopify auth URL
+  //   socket.emit('redirectToShopify', {
+  //     url: `http://localhost:3000${shopify.config.auth.path}?shop=${process.env.SHOP_NAME}`, // This will be '/api/auth'
+  //   });
+  // });
 
   socket.on('pingServer', () => {
     console.log('Ping received from client');
