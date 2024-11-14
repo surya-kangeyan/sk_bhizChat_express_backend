@@ -8,6 +8,7 @@ import express, {
   Response,
   NextFunction,
 } from 'express';
+import { v4 as uuidv4 } from 'uuid';
 
 import SocketIOFileUpload from 'socket.io-file';
 import path from 'path';
@@ -843,9 +844,12 @@ socket.on('documentUpload', async (data) => {
   );
 
   try {
+    const documentId = uuidv4();
+
     // Create a new file document with the file data
     const newFile = new File({
       shopName,
+      documentId,
       fileName,
       fileData: Buffer.from(fileData), // Convert file data to Buffer for MongoDB storage
     });
@@ -860,6 +864,7 @@ socket.on('documentUpload', async (data) => {
       success: true,
       message: `Document uploaded successfully for shop ${shopName} and stored in MongoDB!`,
       fileName,
+      documentId,
     });
   } catch (err) {
     console.error('File upload error:', err);
@@ -870,58 +875,173 @@ socket.on('documentUpload', async (data) => {
     });
   }
 });
+socket.on(
+  'fetchDocumentIdsForStore',
+  async (shopName: string) => {
+    console.log(` fetchDocumentsForStore called for shop name ${shopName}`)
+    if (!shopName) {
+      socket.emit('fetchError', {
+        success: false,
+        message:
+          'Shop name is required to fetch documents.',
+      });
+      return;
+    }
 
- socket.on('fetchDocuments', async (shopName) => {
-   if (!shopName) {
-     socket.emit('fetchError', {
-       success: false,
-       message:
-         'Shop name is required to fetch documents.',
-     });
-     return;
-   }
+    console.log(
+      `Fetching documents for shop: ${shopName}`
+    );
 
-   try {
-     // Find all documents with the specified shop name
-     const documents = await File.find({
-       shopName,
-     });
+    try {
+      // Find all documents for the specified shop and retrieve only documentId
+      const documents = await File.find(
+        { shopName },
+        'documentId'
+      );
 
-     if (documents.length === 0) {
-       socket.emit('fetchSuccess', {
-         success: false,
-         message: `No documents found for shop ${shopName}.`,
-       });
-       return;
+      if (documents.length === 0) {
+        socket.emit('fetchSuccess', {
+          success: false,
+          message: `No documents found for shop ${shopName}.`,
+        });
+        return;
+      }
+
+      // Extract document IDs from the result
+      const documentIds = documents.map(
+        (doc) => doc.documentId
+      );
+
+      socket.emit('fetchSuccess', {
+        success: true,
+        message: `Documents for shop ${shopName} fetched successfully!`,
+        documentIds, // Array of document IDs
+      });
+    } catch (err) {
+      console.error(
+        'Error fetching documents:',
+        err
+      );
+      socket.emit('fetchError', {
+        success: false,
+        message:
+          'An error occurred while fetching documents.',
+      });
+    }
+  }
+);
+
+socket.on('fetchDocument', async (data) => {
+  const { shopName, documentId } = data;
+
+  if (!shopName || !documentId) {
+    socket.emit('fetchError', {
+      success: false,
+      message:
+        'Both shop name and document ID are required to fetch a document.',
+    });
+    return;
+  }
+
+  console.log(
+    `Fetching document with ID ${documentId} for shop: ${shopName}`
+  );
+
+  try {
+    // Find the specific document matching both shopName and documentId
+    const document = await File.findOne({
+      shopName,
+      documentId,
+    });
+
+    if (!document) {
+      socket.emit('fetchSuccess', {
+        success: false,
+        message: `No document found for shop ${shopName} with ID ${documentId}.`,
+      });
+      return;
+    }
+
+    // Convert document data to base64 for transmission
+    const documentDetail = {
+      fileName: document.fileName,
+      fileData:
+        document.fileData.toString('base64'),
+      uploadDate: document.uploadDate,
+    };
+
+    socket.emit('fetchDocumentSuccess', {
+      success: true,
+      message: `Document with ID ${documentId} fetched successfully for shop ${shopName}.`,
+      document: documentDetail,
+    });
+  } catch (err) {
+    console.error(
+      'Error fetching document:',
+      err
+    );
+    socket.emit('fetchError', {
+      success: false,
+      message:
+        'An error occurred while fetching the document.',
+    });
+  }
+});
+
+
+   socket.on(
+     'deleteDocument',
+     async (data: {
+       shopName: string;
+       documentId: string;
+     }) => {
+       const { shopName, documentId } = data;
+
+       if (!shopName || !documentId) {
+         socket.emit('deleteError', {
+           success: false,
+           message:
+             'Shop name and document ID are required to delete a document.',
+         });
+         return;
+       }
+
+       console.log(
+         `Attempting to delete document with ID ${documentId} for shop: ${shopName}`
+       );
+
+       try {
+         // Attempt to delete the document matching both shopName and documentId
+         const result = await File.deleteOne({
+           shopName,
+           documentId,
+         });
+
+         if (result.deletedCount === 0) {
+           socket.emit('deleteSuccess', {
+             success: false,
+             message: `No document found for shop ${shopName} with ID ${documentId}.`,
+           });
+           return;
+         }
+
+         socket.emit('deleteSuccess', {
+           success: true,
+           message: `Document with ID ${documentId} deleted successfully for shop ${shopName}.`,
+         });
+       } catch (err) {
+         console.error(
+           'Error deleting document:',
+           err
+         );
+         socket.emit('deleteError', {
+           success: false,
+           message:
+             'An error occurred while deleting the document.',
+         });
+       }
      }
-
-     // Send back an array of document details
-     const documentDetails = documents.map(
-       (doc) => ({
-         fileName: doc.fileName,
-         fileData:
-           doc.fileData.toString('base64'), // Convert to base64 for transmission
-         uploadDate: doc.uploadDate,
-       })
-     );
-
-     socket.emit('fetchSuccess', {
-       success: true,
-       message: `Documents for shop ${shopName} fetched successfully!`,
-       documents: documentDetails,
-     });
-   } catch (err) {
-     console.error(
-       'Error fetching documents:',
-       err
-     );
-     socket.emit('fetchError', {
-       success: false,
-       message:
-         'An error occurred while fetching documents.',
-     });
-   }
- });
+   );
   // Middleware to check session expiration before processing any event
   socket.use((packet, next) => {
     if (socket.userId && socket.lastActivity) {

@@ -35,11 +35,24 @@
     <input type="file" id="file-upload" />
     <button id="upload-file">Upload File</button>
 
-     <h2>Fetch Documents by Shop Name</h2>
-    <input type="text" id="fetch-shop-name" placeholder="Enter shop name to fetch documents" />
-    <button id="fetch-documents">Fetch Documents</button>
+    <h2>Fetch Document by Store Name and Document ID</h2>
+<input type="text" id="fetch-shop-name" placeholder="Enter store name" />
+<input type="text" id="fetch-document-id" placeholder="Enter document ID" />
+<button id="fetch-document">Fetch Document</button>
+<div id="document-output"></div> <!-- For displaying fetched document details -->
+
 
     <div id="document-output"></div> <!-- For displaying fetched document details -->
+ <h2>Fetch Document IDs for Store</h2>
+<input type="text" id="fetch-store-name" placeholder="Enter store name to fetch document IDs" />
+<button id="fetch-doc-ids">Fetch Document IDs</button>
+<div id="document-ids-output"></div> <!-- For displaying fetched document IDs -->
+
+<h2>Delete Document</h2>
+<input type="text" id="delete-shop-name" placeholder="Enter store name to delete document" />
+<input type="text" id="delete-document-id" placeholder="Enter document ID to delete" />
+<button id="delete-document">Delete Document</button>
+<div id="delete-output"></div> <!-- For displaying delete confirmation or errors -->
 
     <div id="output"></div> <!-- For displaying messages -->
 
@@ -190,6 +203,125 @@
         logMessage('Testing authentication with data: ' + JSON.stringify(dummyAuthData));
         socket.emit('authenticate', dummyAuthData);
       });
+// Fetch Document IDs by store name
+document.getElementById('fetch-doc-ids').addEventListener('click', () => {
+  const shopName = document.getElementById('fetch-store-name').value.trim();
+
+  if (!shopName) {
+    logMessage('Please enter a store name.', 'document-ids-output');
+    return;
+  }
+
+  // Clear previous output
+  document.getElementById('document-ids-output').innerHTML = '';
+
+  // Emit fetchDocumentsForStore event
+  socket.emit('fetchDocumentIdsForStore', shopName);
+});
+
+// Handle successful document ID fetch
+socket.on('fetchSuccess', (data) => {
+  const output = document.getElementById('document-ids-output');
+  
+  if (data.success) {
+    logMessage(data.message, 'document-ids-output');
+    data.documentIds.forEach((docId, index) => {
+      const docElement = document.createElement('p');
+      docElement.textContent = `Document ${index + 1}: ID - ${docId}`;
+      output.appendChild(docElement);
+    });
+  } else {
+    logMessage(data.message, 'document-ids-output');
+  }
+});
+
+// Handle errors in fetching document IDs
+socket.on('fetchError', (error) => {
+  logMessage('Error fetching document IDs: ' + error.message, 'document-ids-output');
+});
+
+// Delete document by store name and document ID
+document.getElementById('delete-document').addEventListener('click', () => {
+  const shopName = document.getElementById('delete-shop-name').value.trim();
+  const documentId = document.getElementById('delete-document-id').value.trim();
+
+  if (!shopName || !documentId) {
+    logMessage('Please provide both store name and document ID to delete.', 'delete-output');
+    return;
+  }
+
+  // Clear previous output
+  document.getElementById('delete-output').innerHTML = '';
+
+  // Emit deleteDocument event
+  socket.emit('deleteDocument', { shopName, documentId });
+});
+
+// Handle successful document deletion
+socket.on('deleteSuccess', (data) => {
+  logMessage(data.message, 'delete-output');
+});
+
+// Handle errors in deleting document
+socket.on('deleteError', (error) => {
+  logMessage('Error deleting document: ' + error.message, 'delete-output');
+});
+
+// Fetch document by store name and document ID
+document.getElementById('fetch-document').addEventListener('click', () => {
+  const shopName = document.getElementById('fetch-shop-name').value.trim();
+  const documentId = document.getElementById('fetch-document-id').value.trim();
+
+  if (!shopName || !documentId) {
+    logMessage('Please enter both the store name and document ID.', 'document-output');
+    return;
+  }
+
+  // Clear previous output
+  document.getElementById('document-output').innerHTML = '';
+
+  // Emit fetchDocument event with shopName and documentId
+  socket.emit('fetchDocument', { shopName, documentId });
+});
+
+// Handle successful document fetch
+socket.on('fetchDocumentSuccess', (data) => {
+  const output = document.getElementById('document-output');
+  
+  if (data.success) {
+    logMessage(data.message, 'document-output');
+    
+    const { fileName, fileData, uploadDate } = data.document;
+
+    // Display the fetched document details
+    const fileNameElement = document.createElement('p');
+    fileNameElement.textContent = `File Name: ${fileName}`;
+    output.appendChild(fileNameElement);
+
+    const uploadDateElement = document.createElement('p');
+    uploadDateElement.textContent = `Upload Date: ${new Date(uploadDate).toLocaleString()}`;
+    output.appendChild(uploadDateElement);
+
+    // Display a truncated version of the file data
+    const fileDataElement = document.createElement('p');
+    fileDataElement.textContent = `File Data (Base64): ${fileData.substring(0, 100)}...`;
+    output.appendChild(fileDataElement);
+
+    // Optional: create a download link for the file
+    const downloadLink = document.createElement('a');
+    downloadLink.href = `data:application/octet-stream;base64,${fileData}`;
+    downloadLink.download = fileName;
+    downloadLink.textContent = `Download ${fileName}`;
+    output.appendChild(downloadLink);
+  } else {
+    logMessage(data.message, 'document-output');
+  }
+});
+
+// Handle errors in fetching document
+socket.on('fetchError', (error) => {
+  logMessage('Error fetching document: ' + error.message, 'document-output');
+});
 
       // Fetch User by Email Button
       document.getElementById('fetch-user').addEventListener('click', () => {
@@ -255,21 +387,7 @@
       }
 
       // Fetch documents by shop name
-      document.getElementById('fetch-documents').addEventListener('click', () => {
-        const shopName = document.getElementById('fetch-shop-name').value.trim();
-
-        if (!shopName) {
-          logMessage('Please enter a shop name.');
-          return;
-        }
-
-        // Clear previous output
-        document.getElementById('document-output').innerHTML = '';
-
-        // Emit fetchDocuments event
-        socket.emit('fetchDocuments', shopName);
-      });
-
+    
       // Handle successful document fetch
       socket.on('fetchSuccess', (data) => {
         if (data.success) {
