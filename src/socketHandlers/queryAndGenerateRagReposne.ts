@@ -1,4 +1,7 @@
-import { pc, pcIndex } from '../index.js'; // Pinecone client import
+import {
+  pc,
+  pcProductRagIndex,
+} from '../index.js'; // Pinecone client import
 
 import { openai } from '../index.js';
 // Function to query Pinecone and generate GPT response
@@ -73,11 +76,12 @@ export async function queryAndGenerateResponse(
       );
 
       // Step 2: Query Pinecone index for relevant products
-      const queryResponse = await pcIndex.query({
-        vector: queryEmbedding,
-        topK: 5, // Fetch top 5 matching products
-        includeMetadata: true,
-      });
+      const queryResponse =
+        await pcProductRagIndex.query({
+          vector: queryEmbedding,
+          topK: 5, // Fetch top 5 matching products
+          includeMetadata: true,
+        });
 
       const matches = queryResponse.matches || [];
 
@@ -232,7 +236,6 @@ export async function queryAndGenerateResponse(
               role: 'user',
               content: userQuery,
             },
-            
           ],
         });
       // return completion.choices[0].message.content;
