@@ -595,8 +595,8 @@ io.on(
       // identify intent of the user query for support, product recommendation, natural chat 
 //  TODO :  implement method for the above functionality 
 
-      let gptSupportRespone = await getSupportCompletion(data.prompt);
-      console.log(`index.ts the supprot rag completion for the query  - ${data.prompt} is ${gptSupportRespone} `)
+      // let gptSupportRespone = await getSupportCompletion(data.prompt);
+      // console.log(`index.ts the supprot rag completion for the query  - ${data.prompt} is ${gptSupportRespone} `)
       // Get the stream response
       let gptResponse =
         await getRecommendationCompletion(

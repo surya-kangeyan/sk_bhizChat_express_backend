@@ -122,10 +122,7 @@ export async function getRecommendationCompletion(
             - When recommending products, be conversational and only suggest items if they directly support the user's stated goals.
             - If recommending multiple products, highlight meaningful differences or advantages to help the user make an informed choice (e.g., durability, ideal for certain routines).
             - Avoid sounding overly promotional; keep the focus on how the products can genuinely support the user’s fitness journey.
-            Provide responses in Markdown format where applicable.
-      
-            After that Based on the user query and the assistant\'s response, generate 3 follow-up questions that the user might ask one after the other. Directly give me the list of questions nothing more. These questions should be relevant to the context of the conversation and encourage further discussion about fitness or the recommended products.
-            `,
+            Provide responses in Markdown format where applicable.`,
             },
             {
               role: 'user',
@@ -200,7 +197,8 @@ export async function getRecommendationCompletion(
                   follow_up_message: {
                     type: 'string',
                     description:
-                      'A closing message in Strict Markdown format with two short, easily parsable follow-up questions about the recommended products, formatted as a numbered list.',
+                            'Based on the user query and the assistant\'s response, generate three easily parsable follow-up questions in Strict Markdown format, formatted as a numbered list that the user might ask one after the other. Directly give me the list of questions nothing more. These questions should be relevant to the context of the conversation and encourage further discussion about fitness or the recommended products.'
+
                   },
                 },
                 required: [

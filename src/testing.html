@@ -11,8 +11,8 @@
     <button id="store-session">Store Session</button>
 
    <h2>Support Query Testing</h2>
-    <input type="text" id="openai-prompt" placeholder="Enter your support query" />
-    <button id="send-prompt">Send Support Query</button>
+    <input type="text" id="openai-prompt1" placeholder="Enter your support query" />
+    <button id="send-prompt1">Send Support Query</button>
     <div id="support-query-output"></div> <!-- For displaying support query responses -->
 
     <h2>Create User</h2>
@@ -346,7 +346,12 @@ socket.on('fetchError', (error) => {
         logMessage('Sending prompt to OpenAI: ' + prompt);
         socket.emit('openaiPrompt', { prompt: prompt, userId: userId });
       });
-
+document.getElementById('send-prompt1').addEventListener('click', () => {
+        const prompt = document.getElementById('openai-prompt1').value;
+        const userId = '672b0012befa3bf47324ddb8';
+        logMessage('Sending prompt to OpenAI: ' + prompt);
+        socket.emit('openaiPrompt', { prompt: prompt, userId: userId });
+      });
       // Fetch Conversations Button
       document.getElementById('fetch-conversations').addEventListener('click', () => {
         const userId = 'sk-test-store1.myshopify.com_75885969541';
