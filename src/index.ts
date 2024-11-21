@@ -368,17 +368,21 @@ io.on(
           ...userData,
         });
 
-        await newUser.save();
+        const shopId = shopifySession.id;
+        console.log(`SHOPID: ${shopId}`)
+
+        await newUser.save(); 
 
         // await Metrics.updateOne({}, { $inc: { totalUsers: 1 } });
 
-        const metrics = await Metrics.findOne();
+        const metrics = await Metrics.findOne({ shopId }); //does this flow make sense
 
         if (metrics) {
           metrics.totalUsers += 1;
           await metrics.save();
         } else {
           const newMetrics = new Metrics({
+            shopId: shopId,
             totalUsers: 1,
             totalConversations: 0,
             totalRecommendations: 0,
@@ -603,10 +607,18 @@ io.on(
           data.prompt
         );
 
+      if (!shopifySession) {
+          console.error('Shopify session is not available or invalid.');
+          socket.emit('error', {
+              message: 'Shopify session is not available.',
+          });
+          return;
+      }
+      
       const shopId = shopifySession.id;
       console.log(`SHOPID: ${shopId}`)
-      const accessToken =
-          shopifySession.accessToken;
+      // const accessToken =
+      //     shopifySession.accessToken;
 
 
       console.log(
@@ -704,7 +716,8 @@ io.on(
         } catch (error) {
           console.log('ERROR SAVING:', error);
         }
-        const metrics = await Metrics.findOne();
+
+        const metrics = await Metrics.findOne({shopId});
 
         if (metrics) {
           metrics.totalConversations += 1;
@@ -715,6 +728,7 @@ io.on(
           // console.log("WE UPDATED THE METRICS!!!!!!", metrics)
         } else {
           const newMetrics = new Metrics({
+            shopId: shopId,
             totalUsers: 1,
             totalConversations: 1,
             totalRecommendations:
@@ -829,8 +843,16 @@ io.on(
       }
     );
     socket.on('fetchMetrics', async () => {
+      if (!shopifySession) {
+        console.error('Shopify session is not available or invalid.');
+        socket.emit('error', {
+            message: 'Shopify session is not available.',
+        });
+        return;
+    }
+      const shopId = shopifySession.id
       try {
-        const metrics = await fetchMetrics();
+        const metrics = await fetchMetrics(shopId);
         socket.emit('metrics', {
           success: true,
           metrics: metrics,
