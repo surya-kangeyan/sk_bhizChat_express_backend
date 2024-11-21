@@ -271,14 +271,14 @@ io.on(
     );
 
     // // Listen for event to start Shopify OAuth
-    // socket.on('startShopifyAuth', () => {
-    //   console.log('Starting Shopify OAuth process');
+    socket.on('startShopifyAuth', () => {
+      console.log('Starting Shopify OAuth process');
 
-    //   // Emit an event to the client with the Shopify auth URL
-    //   socket.emit('redirectToShopify', {
-    //     url: `http://localhost:3000${shopify.config.auth.path}?shop=${process.env.SHOP_NAME}`, // This will be '/api/auth'
-    //   });
-    // });
+      // Emit an event to the client with the Shopify auth URL
+      socket.emit('redirectToShopify', {
+        url: `http://localhost:3000${shopify.config.auth.path}?shop=${process.env.SHOP_NAME}`, // This will be '/api/auth'
+      });
+    });
 
     socket.on('pingServer', () => {
       console.log('Ping received from client');
@@ -602,6 +602,13 @@ io.on(
         await getRecommendationCompletion(
           data.prompt
         );
+
+      const shopId = shopifySession.id;
+      console.log(`SHOPID: ${shopId}`)
+      const accessToken =
+          shopifySession.accessToken;
+
+
       console.log(
         `index.ts the gpt response is ${gptResponse}`
       );
@@ -678,16 +685,18 @@ io.on(
           );
           console.log('DATA.prompt', data.prompt);
           if (isJSON(fullGptResponse)) {
+            // await ChatThread.deleteMany()
             await saveChatThread(
               new ObjectId(userIdAsObjectId),
-              'Shopify shop ID',
+              shopId,
               data.prompt,
               fullGptResponse
             );
           } else {
+            // await ChatThread.deleteMany()
             await saveStringChatThread(
               new ObjectId(userIdAsObjectId),
-              'Shopify shop ID',
+              shopId,
               data.prompt,
               fullGptResponse
             );
@@ -732,7 +741,7 @@ io.on(
    
     socket.on(
       'fetchConversations',
-      async (userId) => {
+      async () => {
         ///TESTING
         // userId = new ObjectId('672b0012befa3bf47324ddb8')
         // console.log(
