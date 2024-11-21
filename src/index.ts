@@ -15,7 +15,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 
-import { queryAndGenerateResponse } from './socketHandlers/queryAndGenerateRagReposne.js';
+import { getRecommendationCompletion } from './socketHandlers/recommendationRag.js';
 
 import { Pinecone } from '@pinecone-database/pinecone';
 import axios from 'axios';
@@ -43,6 +43,7 @@ import Metrics from './models/metrics.js';
 // import { createProductWebhook } from './services/productMutations';
 import User from './models/userDetails.js';
 import { pdfToText } from 'pdf-ts';
+import { getSupportCompletion } from './socketHandlers/supportRag.js';
 dotenv.config();
 
 const PORT = process.env.PORT || 3000;
@@ -209,15 +210,28 @@ async function getPDFDocumentEmbeddings(
 
   // Step 2: Create embeddings for each chunk
   const embeddings = await Promise.all(
-    textChunks.map(async (chunk) => {
+    textChunks.map(async (chunk, index) => {
+      console.log(
+        `Processing chunk ${index + 1}/${
+          textChunks.length
+        }:`,
+        chunk
+      ); // Log the text chunk
       const embeddingResponse =
         await openai.embeddings.create({
           input: chunk,
           model: 'text-embedding-ada-002',
         });
-      return embeddingResponse.data[0].embedding; // Assuming the response structure
+      const embedding =
+        embeddingResponse.data[0].embedding;
+      console.log(
+        `Embedding for chunk ${index + 1}:`,
+        embedding
+      ); // Log the embedding
+      return embedding;
     })
   );
+
   return embeddings;
 
   // You can now use the embeddings as needed
@@ -578,9 +592,14 @@ io.on(
       // Initialize a variable to hold the full concatenated response
       let fullGptResponse = '';
 
+      // identify intent of the user query for support, product recommendation, natural chat 
+//  TODO :  implement method for the above functionality 
+
+      let gptSupportRespone = await getSupportCompletion(data.prompt);
+      console.log(`index.ts the supprot rag completion for the query  - ${data.prompt} is ${gptSupportRespone} `)
       // Get the stream response
       let gptResponse =
-        await queryAndGenerateResponse(
+        await getRecommendationCompletion(
           data.prompt
         );
       console.log(
@@ -931,7 +950,7 @@ io.on(
         const documentText =
           documentBuffer.toString('utf-8'); 
 
-
+          
         console.log(
           `Generating embeddings for support document: ${fileName}`
         );
@@ -944,13 +963,13 @@ io.on(
            const pineconeRecords = embeddings.map((embedding, index) => {
               console.log(`index.ts Embedding for chunk ${index}:`, embedding); // Print each embedding
               return {
-                id: `${documentId}-chunk-${index}`, // Unique ID for each chunk
-                values: embedding, // Use embedding directly if it's an array of numbers
+                id: `${documentId}-chunk-${index}`, 
+                values: embedding, 
                 metadata: {
                   shopName,
                   fileName,
                   chunk: index,
-                  textPreview: '', // Set textPreview appropriately if needed
+                  textPreview: '', 
                 },
               };
            });

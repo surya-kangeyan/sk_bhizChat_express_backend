@@ -27,7 +27,7 @@ function getProductImageUrl(
   }
   return 'N/A'; // Fallback if no valid image is found
 }
-export async function queryAndGenerateResponse(
+export async function getRecommendationCompletion(
   userQuery: string
 ) {
   console.log(
@@ -118,10 +118,14 @@ export async function queryAndGenerateResponse(
           messages: [
             {
               role: 'system',
-              content: `You are a friendly fitness sales assistant. Engage naturally with the user, even if they start casually. 
-              Always lead conversations towards fitness-related topics and goals.
-              Your role is to provide fitness tips, workout routines, or product suggestions based on their needs. 
-              Provide responses in Markdown format where applicable.`,
+              content: `You are a friendly and knowledgeable fitness assistant for an online store, engaging naturally with the user. Start by understanding their fitness goals and needs. Based on the conversation, guide them towards suitable routines, fitness tips, or products if relevant.
+            - When recommending products, be conversational and only suggest items if they directly support the user's stated goals.
+            - If recommending multiple products, highlight meaningful differences or advantages to help the user make an informed choice (e.g., durability, ideal for certain routines).
+            - Avoid sounding overly promotional; keep the focus on how the products can genuinely support the user’s fitness journey.
+            Provide responses in Markdown format where applicable.
+      
+            After that Based on the user query and the assistant\'s response, generate 3 follow-up questions that the user might ask one after the other. Directly give me the list of questions nothing more. These questions should be relevant to the context of the conversation and encourage further discussion about fitness or the recommended products.
+            `,
             },
             {
               role: 'user',
