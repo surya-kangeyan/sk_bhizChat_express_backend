@@ -44,6 +44,7 @@ import Metrics from './models/metrics.js';
 import User from './models/userDetails.js';
 import { pdfToText } from 'pdf-ts';
 import { getSupportCompletion } from './socketHandlers/supportRag.js';
+import { classifyIntent } from './socketHandlers/intentHandler.js';
 dotenv.config();
 
 const PORT = process.env.PORT || 3000;
@@ -180,18 +181,14 @@ const generateObjectIdFromString = (
   return new mongoose.Types.ObjectId(hexString);
 };
 
-interface TextEmbedding {
-  values: number[];
-  metadata: {
-    chunk: number;
-    textPreview: string;
-  };
+interface EmbeddingWithText {
+  embedding: number[];
   text: string;
 }
 async function getPDFDocumentEmbeddings(
   pdfBuffer: Buffer,
   chunkSize: number = 4000
-): Promise<number[][]> {
+): Promise<EmbeddingWithText[]> {
   const text = await pdfToText(pdfBuffer);
 
   // Step 1: Break the text into chunks
@@ -209,33 +206,35 @@ async function getPDFDocumentEmbeddings(
   }
 
   // Step 2: Create embeddings for each chunk
-  const embeddings = await Promise.all(
-    textChunks.map(async (chunk, index) => {
-      console.log(
-        `Processing chunk ${index + 1}/${
-          textChunks.length
-        }:`,
-        chunk
-      ); // Log the text chunk
-      const embeddingResponse =
-        await openai.embeddings.create({
-          input: chunk,
-          model: 'text-embedding-ada-002',
-        });
-      const embedding =
-        embeddingResponse.data[0].embedding;
-      console.log(
-        `Embedding for chunk ${index + 1}:`,
-        embedding
-      ); // Log the embedding
-      return embedding;
-    })
+  const embeddingsWithText: EmbeddingWithText[] =
+    await Promise.all(
+      textChunks.map(async (chunk, index) => {
+        console.log(
+          `Processing chunk ${index + 1}/${
+            textChunks.length
+          }:`,
+          chunk.slice(0, 100) + '...'
+        ); // Log first 100 chars
+        const embeddingResponse =
+          await openai.embeddings.create({
+            input: chunk,
+            model: 'text-embedding-ada-002',
+          });
+        const embedding =
+          embeddingResponse.data[0].embedding;
+        console.log(
+          `Embedding for chunk ${index + 1}:`,
+          embedding.slice(0, 5)
+        ); // Log first 5 numbers
+        return { embedding, text: chunk };
+      })
+    );
+
+  console.log(
+    'Embeddings created:',
+    embeddingsWithText.length
   );
-
-  return embeddings;
-
-  // You can now use the embeddings as needed
-  console.log('Embeddings created:', embeddings);
+  return embeddingsWithText;
 }
 
 
@@ -596,162 +595,215 @@ io.on(
 
       // Initialize a variable to hold the full concatenated response
       let fullGptResponse = '';
+  const shopId = shopifySession.id;
 
       // identify intent of the user query for support, product recommendation, natural chat 
 //  TODO :  implement method for the above functionality 
+      try{
 
-      // let gptSupportRespone = await getSupportCompletion(data.prompt);
-      // console.log(`index.ts the supprot rag completion for the query  - ${data.prompt} is ${gptSupportRespone} `)
-      // Get the stream response
-      let gptResponse =
-        await getRecommendationCompletion(
-          data.prompt
+    const intent = await classifyIntent(
+      userQuery
+    );
+    console.log(`Identified intent: ${intent}`);
+if (intent === 'support') {
+  let gptSupportRespone =
+    await getSupportCompletion(data.prompt);
+  console.log(
+    `index.ts the supprot rag completion for the query  - ${data.prompt} is ${gptSupportRespone} `
+  );
+   socket.emit('openaiResponse', {
+     success: true,
+     result: gptSupportRespone,
+   });
+
+   // Save the chat thread
+   await saveChatThread(
+     new ObjectId(
+       generateObjectIdFromString(socket.userId!)
+     ),
+     shopifySession.id,
+     userQuery,
+     gptSupportRespone
+   );
+
+   // Update Metrics
+const metrics = await Metrics.findOne({
+      shopId,
+    });
+
+    if (metrics) {
+      metrics.totalConversations += 1;
+      metrics.totalRecommendations =0;
+      await metrics.save();}
+
+} else if (
+  intent === 'recommendation' ||
+  intent === 'chat'
+) {
+  // Get the stream response
+  let gptResponse =
+    await getRecommendationCompletion(
+      data.prompt
+    );
+
+  if (!shopifySession) {
+    console.error(
+      'Shopify session is not available or invalid.'
+    );
+    socket.emit('error', {
+      message:
+        'Shopify session is not available.',
+    });
+    return;
+  }
+
+  console.log(`SHOPID: ${shopId}`);
+  // const accessToken =
+  //     shopifySession.accessToken;
+
+  console.log(
+    `index.ts the gpt response is ${gptResponse}`
+  );
+  if (typeof gptResponse !== 'string') {
+    for await (const chunk of gptResponse) {
+      const content =
+        chunk.choices[0]?.delta?.content;
+      const functionCallArgs =
+        chunk.choices[0]?.delta?.function_call
+          ?.arguments;
+
+      //  console.log(
+      //    `QueryAndGenerateRagResponse the recommendation count is ${functionCallArgs}`
+      //  );
+      // Concatenate each chunk to form the full response
+      const message = content
+        ? content
+        : functionCallArgs
+        ? functionCallArgs
+        : '';
+      fullGptResponse += message;
+
+      // Emit each chunk to the client in real-time
+      socket.emit('openaiResponse', {
+        success: true,
+        result: message,
+      });
+    }
+    let finalRecommendationCount = 0;
+    if (isJSON(fullGptResponse)) {
+      try {
+        const parsedResponse = JSON.parse(
+          fullGptResponse
         );
-
-      if (!shopifySession) {
-          console.error('Shopify session is not available or invalid.');
-          socket.emit('error', {
-              message: 'Shopify session is not available.',
-          });
-          return;
+        // Extract `recommendation_count`
+        const recommendationCount =
+          parsedResponse.recommendation_count;
+        console.log(
+          `Recommendation count!!!!: ${recommendationCount}`
+        );
+        finalRecommendationCount =
+          recommendationCount;
+        // You may also want to store the entire parsed response for further use
+        // console.log(
+        //   'Full Parsed Response:',
+        //   parsedResponse
+        // );
+      } catch (error) {
+        console.error(
+          'Error parsing GPT response:',
+          error
+        );
       }
-      
-      const shopId = shopifySession.id;
-      console.log(`SHOPID: ${shopId}`)
-      // const accessToken =
-      //     shopifySession.accessToken;
+    }
 
-
+    console.log(
+      `index.ts storing parsed response for user id ${socket.userId}`
+    );
+    //console.log('what is socket:', socket)
+    try {
+      if (!socket.userId) {
+        console.log('WHYYYYYY');
+      }
+      const userIdAsObjectId =
+        generateObjectIdFromString(
+          socket.userId!
+        );
+      //test
+      // console.log("BEFORE PARSIN:",fullGptResponse)
+      // console.log("FULL RESPOMSE: ", parsedResponse)
       console.log(
-        `index.ts the gpt response is ${gptResponse}`
+        'NEW ID',
+        new ObjectId(userIdAsObjectId)
       );
-      if (typeof gptResponse !== 'string') {
-        for await (const chunk of gptResponse) {
-          const content =
-            chunk.choices[0]?.delta?.content;
-          const functionCallArgs =
-            chunk.choices[0]?.delta?.function_call
-              ?.arguments;
-
-          //  console.log(
-          //    `QueryAndGenerateRagResponse the recommendation count is ${functionCallArgs}`
-          //  );
-          // Concatenate each chunk to form the full response
-          const message = content
-            ? content
-            : functionCallArgs
-            ? functionCallArgs
-            : '';
-          fullGptResponse += message;
-
-          // Emit each chunk to the client in real-time
-          socket.emit('openaiResponse', {
-            success: true,
-            result: message,
-          });
-        }
-        let finalRecommendationCount = 0;
-        if (isJSON(fullGptResponse)) {
-          try {
-            const parsedResponse = JSON.parse(
-              fullGptResponse
-            );
-            // Extract `recommendation_count`
-            const recommendationCount =
-              parsedResponse.recommendation_count;
-            console.log(
-              `Recommendation count!!!!: ${recommendationCount}`
-            );
-            finalRecommendationCount =
-              recommendationCount;
-            // You may also want to store the entire parsed response for further use
-            // console.log(
-            //   'Full Parsed Response:',
-            //   parsedResponse
-            // );
-          } catch (error) {
-            console.error(
-              'Error parsing GPT response:',
-              error
-            );
-          }
-        }
-
-        console.log(
-          `index.ts storing parsed response for user id ${socket.userId}`
+      console.log('DATA.prompt', data.prompt);
+      if (isJSON(fullGptResponse)) {
+        // await ChatThread.deleteMany()
+        await saveChatThread(
+          new ObjectId(userIdAsObjectId),
+          shopId,
+          data.prompt,
+          fullGptResponse
         );
-        //console.log('what is socket:', socket)
-        try {
-          if (!socket.userId) {
-            console.log('WHYYYYYY');
-          }
-          const userIdAsObjectId =
-            generateObjectIdFromString(
-              socket.userId!
-            );
-          //test
-          // console.log("BEFORE PARSIN:",fullGptResponse)
-          // console.log("FULL RESPOMSE: ", parsedResponse)
-          console.log(
-            'NEW ID',
-            new ObjectId(userIdAsObjectId)
-          );
-          console.log('DATA.prompt', data.prompt);
-          if (isJSON(fullGptResponse)) {
-            // await ChatThread.deleteMany()
-            await saveChatThread(
-              new ObjectId(userIdAsObjectId),
-              shopId,
-              data.prompt,
-              fullGptResponse
-            );
-          } else {
-            // await ChatThread.deleteMany()
-            await saveStringChatThread(
-              new ObjectId(userIdAsObjectId),
-              shopId,
-              data.prompt,
-              fullGptResponse
-            );
-          }
-        } catch (error) {
-          console.log('ERROR SAVING:', error);
-        }
-
-        const metrics = await Metrics.findOne({shopId});
-
-        if (metrics) {
-          metrics.totalConversations += 1;
-          metrics.totalRecommendations +=
-            finalRecommendationCount;
-
-          await metrics.save();
-
-          // console.log("WE UPDATED THE METRICS!!!!!!", metrics)
-        } else {
-          const newMetrics = new Metrics({
-            shopId: shopId,
-            totalUsers: 1,
-            totalConversations: 1,
-            totalRecommendations:
-              finalRecommendationCount,
-            totalProductClicks:0
-          });
-          await newMetrics.save();
-          console.log(
-            'SAVED A NEW METRIC!!!: ',
-            newMetrics
-          );
-        }
-
-        // await Metrics.updateOne({}, { $inc: { totalConversations: 1, totalRecommendations: finalRecommendationCount } });
-
-        console.log(
-          `Sending response to client: ${gptResponse}`
+      } else {
+        // await ChatThread.deleteMany()
+        await saveStringChatThread(
+          new ObjectId(userIdAsObjectId),
+          shopId,
+          data.prompt,
+          fullGptResponse
         );
-        socket.emit('openaiResponseEnd', {
-          success: true,
-          result: '\n',
+      }
+    } catch (error) {
+      console.log('ERROR SAVING:', error);
+    }
+
+    const metrics = await Metrics.findOne({
+      shopId,
+    });
+
+    if (metrics) {
+      metrics.totalConversations += 1;
+      metrics.totalRecommendations +=
+        finalRecommendationCount;
+
+      await metrics.save();
+
+      // console.log("WE UPDATED THE METRICS!!!!!!", metrics)
+    } else {
+      const newMetrics = new Metrics({
+        shopId: shopId,
+        totalUsers: 1,
+        totalConversations: 1,
+        totalRecommendations:
+          finalRecommendationCount,
+        totalProductClicks: 0,
+      });
+      await newMetrics.save();
+      console.log(
+        'SAVED A NEW METRIC!!!: ',
+        newMetrics
+      );
+    }
+
+    // await Metrics.updateOne({}, { $inc: { totalConversations: 1, totalRecommendations: finalRecommendationCount } });
+
+    console.log(
+      `Sending response to client: ${gptResponse}`
+    );
+    socket.emit('openaiResponseEnd', {
+      success: true,
+      result: '\n',
+    });
+  }
+}}
+      catch(error){
+        console.error(
+          'Error handling openaiPrompt:',
+          error
+        );
+        socket.emit('error', {
+          message:
+            'An error occurred while processing your request.',
         });
       }
     });
@@ -945,86 +997,91 @@ io.on(
     });
 
     // Listen for a custom event for document upload
-    socket.on('documentUpload', async (data) => {
-      const { shopName, fileName, fileData } =
-        data;
+  socket.on('documentUpload', async (data) => {
+    const { shopName, fileName, fileData } = data;
 
-      if (!shopName || !fileName || !fileData) {
-        socket.emit('uploadError', {
-          success: false,
-          message:
-            'Shop name, file name, and file data are required.',
-        });
-        return;
-      }
+    if (!shopName || !fileName || !fileData) {
+      socket.emit('uploadError', {
+        success: false,
+        message:
+          'Shop name, file name, and file data are required.',
+      });
+      return;
+    }
 
+    console.log(
+      `Starting document upload for shop: ${shopName}`
+    );
+
+    try {
+      const documentId = uuidv4();
+      const documentBuffer =
+        Buffer.from(fileData);
+
+      // Create a new file document with the file data
+      const newFile = new File({
+        shopName,
+        documentId,
+        fileName,
+        fileData: documentBuffer, // Convert file data to Buffer for MongoDB storage
+      });
+
+      // Save the file document to MongoDB
+      await newFile.save();
       console.log(
-        `Starting document upload for shop: ${shopName}`
+        `File uploaded for shop ${shopName} and stored in MongoDB`
       );
 
-      try {
-        const documentId = uuidv4();
-        const documentBuffer  = Buffer.from(fileData)
-        // Create a new file document with the file data
-        const newFile = new File({
-          shopName,
-          documentId,
-          fileName,
-          fileData: documentBuffer, // Convert file data to Buffer for MongoDB storage
-        });
-
-        // Save the file document to MongoDB
-        await newFile.save();
-
-        console.log(
-          `File uploaded for shop ${shopName} and stored in MongoDB`
+      // Generate embeddings along with text chunks
+      const embeddingsWithText =
+        await getPDFDocumentEmbeddings(
+          documentBuffer
         );
 
+      console.log(
+        `Upserting embeddings for document: ${fileName} into Pinecone`
+      );
 
-        const documentText =
-          documentBuffer.toString('utf-8'); 
-
-          
-        console.log(
-          `Generating embeddings for support document: ${fileName}`
-        );
-       const embeddings = await getPDFDocumentEmbeddings(documentBuffer)
-
-        console.log(
-          `Upserting embeddings for document: ${fileName} into Pinecone`
-        );
-      
-           const pineconeRecords = embeddings.map((embedding, index) => {
-              console.log(`index.ts Embedding for chunk ${index}:`, embedding); // Print each embedding
-              return {
-                id: `${documentId}-chunk-${index}`, 
-                values: embedding, 
-                metadata: {
-                  shopName,
-                  fileName,
-                  chunk: index,
-                  textPreview: '', 
-                },
-              };
-           });
-           await pcSupportDocIndex.upsert(pineconeRecords);
-
-
-        socket.emit('uploadSuccess', {
-          success: true,
-          message: `Document uploaded successfully for shop ${shopName} and stored in MongoDB!`,
-          fileName,
-          documentId,
+      const pineconeRecords =
+        embeddingsWithText.map((item, index) => {
+          console.log(
+            `index.ts Embedding for chunk ${index}:`,
+            item.embedding.slice(0, 5)
+          ); // Print first 5 numbers
+          return {
+            id: `${documentId}-chunk-${index}`,
+            values: item.embedding,
+            metadata: {
+              shopName,
+              fileName,
+              chunk: index,
+              fullText: item.text, // Store the full text of the chunk
+            },
+          };
         });
-      } catch (err) {
-        console.error('File upload error:', err);
-        socket.emit('uploadError', {
-          success: false,
-          message:
-            'An error occurred while uploading the document to MongoDB.',
-        });
-      }
-    });
+
+      await pcSupportDocIndex.upsert(
+        pineconeRecords
+      );
+      console.log(
+        `Successfully upserted ${pineconeRecords.length} chunks to Pinecone`
+      );
+
+      socket.emit('uploadSuccess', {
+        success: true,
+        message: `Document uploaded successfully for shop ${shopName} and stored in MongoDB!`,
+        fileName,
+        documentId,
+      });
+    } catch (err) {
+      console.error('File upload error:', err);
+      socket.emit('uploadError', {
+        success: false,
+        message:
+          'An error occurred while uploading the document to MongoDB.',
+      });
+    }
+  });
 
     socket.on(
       'fetchDocumentIdsForStore',
