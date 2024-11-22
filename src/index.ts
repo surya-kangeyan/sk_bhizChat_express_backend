@@ -271,14 +271,14 @@ io.on(
     );
 
     // // Listen for event to start Shopify OAuth
-    // socket.on('startShopifyAuth', () => {
-    //   console.log('Starting Shopify OAuth process');
+    socket.on('startShopifyAuth', () => {
+      console.log('Starting Shopify OAuth process');
 
-    //   // Emit an event to the client with the Shopify auth URL
-    //   socket.emit('redirectToShopify', {
-    //     url: `http://localhost:3000${shopify.config.auth.path}?shop=${process.env.SHOP_NAME}`, // This will be '/api/auth'
-    //   });
-    // });
+      // Emit an event to the client with the Shopify auth URL
+      socket.emit('redirectToShopify', {
+        url: `http://localhost:3000${shopify.config.auth.path}?shop=${process.env.SHOP_NAME}`, // This will be '/api/auth'
+      });
+    });
 
     socket.on('pingServer', () => {
       console.log('Ping received from client');
@@ -368,17 +368,21 @@ io.on(
           ...userData,
         });
 
-        await newUser.save();
+        const shopId = shopifySession.id;
+        console.log(`SHOPID: ${shopId}`)
+
+        await newUser.save(); 
 
         // await Metrics.updateOne({}, { $inc: { totalUsers: 1 } });
 
-        const metrics = await Metrics.findOne();
+        const metrics = await Metrics.findOne({ shopId }); //does this flow make sense
 
         if (metrics) {
           metrics.totalUsers += 1;
           await metrics.save();
         } else {
           const newMetrics = new Metrics({
+            shopId: shopId,
             totalUsers: 1,
             totalConversations: 0,
             totalRecommendations: 0,
@@ -603,6 +607,21 @@ io.on(
         await getRecommendationCompletion(
           data.prompt
         );
+
+      if (!shopifySession) {
+          console.error('Shopify session is not available or invalid.');
+          socket.emit('error', {
+              message: 'Shopify session is not available.',
+          });
+          return;
+      }
+      
+      const shopId = shopifySession.id;
+      console.log(`SHOPID: ${shopId}`)
+      // const accessToken =
+      //     shopifySession.accessToken;
+
+
       console.log(
         `index.ts the gpt response is ${gptResponse}`
       );
@@ -679,16 +698,18 @@ io.on(
           );
           console.log('DATA.prompt', data.prompt);
           if (isJSON(fullGptResponse)) {
+            // await ChatThread.deleteMany()
             await saveChatThread(
               new ObjectId(userIdAsObjectId),
-              'Shopify shop ID',
+              shopId,
               data.prompt,
               fullGptResponse
             );
           } else {
+            // await ChatThread.deleteMany()
             await saveStringChatThread(
               new ObjectId(userIdAsObjectId),
-              'Shopify shop ID',
+              shopId,
               data.prompt,
               fullGptResponse
             );
@@ -696,7 +717,8 @@ io.on(
         } catch (error) {
           console.log('ERROR SAVING:', error);
         }
-        const metrics = await Metrics.findOne();
+
+        const metrics = await Metrics.findOne({shopId});
 
         if (metrics) {
           metrics.totalConversations += 1;
@@ -708,6 +730,7 @@ io.on(
           // console.log("WE UPDATED THE METRICS!!!!!!", metrics)
         } else {
           const newMetrics = new Metrics({
+            shopId: shopId,
             totalUsers: 1,
             totalConversations: 1,
             totalRecommendations:
@@ -735,7 +758,7 @@ io.on(
    
     socket.on(
       'fetchConversations',
-      async (userId) => {
+      async () => {
         ///TESTING
         // userId = new ObjectId('672b0012befa3bf47324ddb8')
         // console.log(
@@ -823,8 +846,16 @@ io.on(
       }
     );
     socket.on('fetchMetrics', async () => {
+      if (!shopifySession) {
+        console.error('Shopify session is not available or invalid.');
+        socket.emit('error', {
+            message: 'Shopify session is not available.',
+        });
+        return;
+    }
+      const shopId = shopifySession.id
       try {
-        const metrics = await fetchMetrics();
+        const metrics = await fetchMetrics(shopId);
         socket.emit('metrics', {
           success: true,
           metrics: metrics,

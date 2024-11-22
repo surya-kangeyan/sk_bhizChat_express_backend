@@ -1,19 +1,24 @@
 import Metrics from '../models/metrics.js';
 
-export async function fetchMetrics() {
+export async function fetchMetrics(shopId: any) {
+
     try {
-        const metrics = await Metrics.findOne();
+        const metrics = await Metrics.findOne({shopId});
         if (!metrics) {
             const defaultData = new Metrics({
-              totalUsers: 0,
-              totalConversations: 0,
-              totalRecommendations: 0,
-              totalProductClicks: 0,
-            }); 
+                shopId: shopId,
+                totalUsers: 0,
+                totalConversations: 0,
+                totalRecommendations: 0,
+                totalProductClicks: 0,
+
+            }) 
+
             await defaultData.save();
             return {
                 success:true,
                 metrics: {
+                    shopId: shopId,
                     users: 0,
                     conversations: 0,
                     recommendations: 0,
@@ -25,6 +30,7 @@ export async function fetchMetrics() {
             return { 
                 success: true, 
                 metrics: {
+                    shopId: metrics.shopId,
                     users: metrics.totalUsers,
                     conversations: metrics.totalConversations,
                     recommendations: metrics.totalRecommendations,
