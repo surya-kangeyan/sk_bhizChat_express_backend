@@ -5,17 +5,19 @@ export async function fetchMetrics() {
         const metrics = await Metrics.findOne();
         if (!metrics) {
             const defaultData = new Metrics({
-                totalUsers: 0,
-                totalConversations: 0,
-                totalRecommendations: 0
-            }) 
+              totalUsers: 0,
+              totalConversations: 0,
+              totalRecommendations: 0,
+              totalProductClicks: 0,
+            }); 
             await defaultData.save();
             return {
                 success:true,
                 metrics: {
                     users: 0,
                     conversations: 0,
-                    recommendations: 0
+                    recommendations: 0,
+                    productClicks: 0
                 }
             }
         }
@@ -25,7 +27,8 @@ export async function fetchMetrics() {
                 metrics: {
                     users: metrics.totalUsers,
                     conversations: metrics.totalConversations,
-                    recommendations: metrics.totalRecommendations
+                    recommendations: metrics.totalRecommendations,
+                    productClicks: metrics.totalProductClicks
                 }
              }
         } else {

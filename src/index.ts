@@ -35,7 +35,7 @@ import {
   saveChatThread,
   saveStringChatThread,
 } from './socketHandlers/saveChatThread.js';
-import { fetchMetrics } from './socketHandlers/metrics.js';
+import { fetchMetrics } from './socketHandlers/metricsHandler.js';
 
 import { ObjectId } from 'mongodb';
 import Metrics from './models/metrics.js';
@@ -382,6 +382,7 @@ io.on(
             totalUsers: 1,
             totalConversations: 0,
             totalRecommendations: 0,
+            totalProductClicks:0
           });
           await newMetrics.save();
           console.log(
@@ -701,6 +702,7 @@ io.on(
           metrics.totalConversations += 1;
           metrics.totalRecommendations +=
             finalRecommendationCount;
+
           await metrics.save();
 
           // console.log("WE UPDATED THE METRICS!!!!!!", metrics)
@@ -710,6 +712,7 @@ io.on(
             totalConversations: 1,
             totalRecommendations:
               finalRecommendationCount,
+            totalProductClicks:0
           });
           await newMetrics.save();
           console.log(
