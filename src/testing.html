@@ -25,6 +25,10 @@
     <h2>Fetch Conversations</h2>
     <button id="fetch-conversations">Fetch Conversations</button>
 
+
+    <h2>Fetch All Conversations For a Store</h2>
+    <button id="fetch-all-conversations">Fetch Conversations</button>
+
     <h2>Fetch Metrics</h2>
     <button id="fetch-metrics">Fetch Metrics</button>
 
@@ -360,6 +364,12 @@ document.getElementById('send-prompt1').addEventListener('click', () => {
         
       });
 
+      document.getElementById('fetch-all-conversations').addEventListener('click', () => {
+        logMessage('Fetching conversations for shop: ');
+        socket.emit('fetchAllConversations');
+      });
+
+
       // Fetch Metrics Button
       document.getElementById('fetch-metrics').addEventListener('click', () => {
         socket.emit('fetchMetrics');
@@ -437,6 +447,18 @@ document.getElementById('send-prompt1').addEventListener('click', () => {
       socket.on('conversationsData', (data) => {
         if (data.success) {
           data.conversations.forEach((conversation) => {
+            conversation.messages.forEach((message) => {
+              logMessage(`User: ${message.userMessage}`);
+              logMessage(`AI Response: ${message.aiResponse}`);
+            });
+          });
+        }
+      });
+
+      socket.on('allConversationsData', (data) => {
+        if (data.success) {
+          data.conversations.forEach((conversation) => {
+            logMessage("user id: " + conversation.userId)
             conversation.messages.forEach((message) => {
               logMessage(`User: ${message.userMessage}`);
               logMessage(`AI Response: ${message.aiResponse}`);

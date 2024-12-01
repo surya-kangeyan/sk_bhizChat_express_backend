@@ -897,6 +897,93 @@ const metrics = await Metrics.findOne({
         }
       }
     );
+
+    socket.on(
+      'fetchAllConversations',
+      async () => {
+        console.log("FETCHING ALL CONVERSATIONS")
+        ///TESTING
+        // userId = new ObjectId('672b0012befa3bf47324ddb8')
+        // console.log(
+        //   `Fetching conversations for userId: ${userId}`
+        // );
+        if (!shopifySession) {
+          socket.emit('shopIdError', {
+            message: 'No shopify session found',
+          });
+          console.log('NO shopify session found');
+          return;
+        }
+        const shopId = shopifySession.id; //test this, make sure we dont get null pointer in the case that there is no shopify session
+
+        try {
+          if (
+            !shopId
+          ) {
+            socket.emit('shopIdError', {
+              message: 'No shop ID found',
+            });
+            console.log('NO shop ID GIVEN');
+            return;
+          }
+          // Validate userId
+          const userChatThreads =
+            await ChatThread.find({
+              shopId: shopId,
+            });
+          // Sort messages by timestamp for each conversation
+          const sortedConversations =
+          userChatThreads.map((chatThread) => {
+              // console.log("MESSAGES: ", conversation.messages)
+              const sortedMessages =
+              chatThread.messages
+                  .sort(
+                    (a, b) =>
+                      new Date(
+                        a.userInput.timestamp
+                      ).getTime() -
+                      new Date(
+                        b.userInput.timestamp
+                      ).getTime()
+                  )
+                  .map((message) => {
+                    return {
+                      messageId:
+                        message.messageId,
+                      userMessage:
+                        message.userInput.content,
+                      aiResponse:
+                        message.llmOutput.content,
+                      // recommendations: message.llmOutput.content
+                    };
+                  });
+              console.log(
+                'SORTED MESSAGES and USER',
+                sortedMessages, chatThread.userId
+              );
+              
+              return {
+                // conversationId: conversation._id,
+                userId: chatThread.userId,
+                messages: sortedMessages,
+              };
+            });
+          socket.emit('allConversationsData', {
+            success: true,
+            conversations: sortedConversations,
+          });
+        } catch (error) {
+          console.error(
+            'Error fetching conversations:',
+            error
+          );
+          socket.emit('error', {
+            message:
+              'Failed to fetch conversations',
+          });
+        }
+      }
+    );
     socket.on('fetchMetrics', async () => {
       if (!shopifySession) {
         console.error('Shopify session is not available or invalid.');
